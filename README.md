@@ -1,2 +1,2 @@
-# coferpol_duback
-Realiza backups de bancos postgres para a nuvem
+# duback
+Backup! Postgres to Google Drive
