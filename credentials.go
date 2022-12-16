@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 )
@@ -29,7 +30,19 @@ func driveCredenGen() {
 		panic(err)
 	}
 
-	err = os.WriteFile("credentials.json", credentialJsonString, 0600)
+	var credentialJsonModel driveCreden
+
+	json.Unmarshal([]byte(credentialJsonString), &credentialJsonModel)
+
+	//--------------
+	content, err := json.Marshal(credentialJsonModel)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(string(content))
+
+	err = ioutil.WriteFile("credentials.json", content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +74,7 @@ func driveTokenGen() {
 		fmt.Println(err)
 	}
 
-	err = os.WriteFile("token.json", content, 0600)
+	err = os.WriteFile("token.json", content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}

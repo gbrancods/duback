@@ -4,5 +4,5 @@ func main() {
 
 	driveCredenGen()
 	driveTokenGen()
-	token()
+	listFiles()
 }
