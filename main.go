@@ -1,6 +1,9 @@
 package main
 
-import "duback/drive"
+import (
+	"duback/drive"
+	"duback/tools"
+)
 
 func main() {
 
@@ -11,5 +14,5 @@ func main() {
 	drive.DriveTokenGen()
 
 	// Lista os arquivos
-	drive.ListFiles()
+	tools.BackupRotine()
 }

@@ -10,10 +10,10 @@ import (
 
 type DBStruct struct {
 	Port     string
-	DBName   string
+	Name     string
 	IP       string
 	Password string
-	Login    string
+	User     string
 }
 
 func BackupGen(db DBStruct) error {
@@ -24,8 +24,9 @@ func BackupGen(db DBStruct) error {
 
 	date := fmt.Sprintf("%d-%d-%d", d, m, y)
 
-	arg1 := fmt.Sprintf("--dbname=postgresql://%s:%s@%s:%s/postgres", DBStruct.Login, DBStruct.Password, DBStruct.IP, DBStruct.Port)
-	arg2 := fmt.Sprintf("backup-%s-%s", DBStruct.DBName, date)
+	arg1 := fmt.Sprintf("--dbname=postgresql://%s:%s@%s:%s/postgres", db.Name, db.Password, db.IP, db.Port)
+
+	arg2 := fmt.Sprintf("backup-%s-%s", db.Name, date)
 
 	cmd := exec.Command("pg_dump", arg1, ">", arg2)
 
@@ -40,7 +41,7 @@ func BackupGen(db DBStruct) error {
 		// TODO - send email
 	}
 
-	compareString := string("192.168.55.250:" + db.port + " - accepting connections")
+	compareString := string("192.168.55.250:" + db.Port + " - accepting connections")
 	compareStringOut := string(out.String())
 
 	// Compara se as strings
