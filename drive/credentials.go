@@ -1,10 +1,9 @@
-package main
+package drive
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 )
@@ -42,7 +41,7 @@ func driveCredenGen() {
 
 	fmt.Println(string(content))
 
-	err = ioutil.WriteFile("credentials.json", content, 0644)
+	err = os.WriteFile("credentials.json", content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
