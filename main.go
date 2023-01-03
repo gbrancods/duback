@@ -1,12 +1,15 @@
 package main
 
+import "duback/drive"
+
 func main() {
 
 	// Gera as credentials
-	drive.driveCredenGen()
+	drive.DriveCredenGen()
 
 	// Gera o token
-	drive.driveTokenGen()
+	drive.DriveTokenGen()
 
-	drive.listFiles()
+	// Lista os arquivos
+	drive.ListFiles()
 }

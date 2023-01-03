@@ -2,7 +2,7 @@ package drive
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"log"
 	"os"
 
@@ -11,8 +11,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-func CreateFile(name string, mimeType string, content io.Reader, parentId string) (*drive.File, error) {
-
+// Exemplo de listagem de arquivos
+func ListFiles() {
 	ctx := context.Background()
 	b, err := os.ReadFile("credentials.json")
 	if err != nil {
@@ -31,17 +31,17 @@ func CreateFile(name string, mimeType string, content io.Reader, parentId string
 		log.Fatalf("Unable to retrieve Drive client: %v", err)
 	}
 
-	f := &drive.File{
-		MimeType: mimeType,
-		Name:     name,
-		Parents:  []string{parentId},
-	}
-	file, err := srv.Files.Create(f).Media(content).Do()
-
+	r, err := srv.Files.List().PageSize(10).
+		Fields("nextPageToken, files(id, name)").Do()
 	if err != nil {
-		log.Println("Could not create file: " + err.Error())
-		return nil, err
+		log.Fatalf("Unable to retrieve files: %v", err)
 	}
-
-	return file, nil
+	fmt.Println("Files:")
+	if len(r.Files) == 0 {
+		fmt.Println("No files found.")
+	} else {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		}
+	}
 }
