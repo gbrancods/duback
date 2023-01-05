@@ -1,19 +1,14 @@
 package main
 
-import (
-	"duback/drive"
-	"duback/tools"
-)
-
 func main() {
 
 	// Gera as credentials
-	drive.DriveCredenGen()
+	driveCredenGen()
 
 	// Gera o token
-	drive.DriveTokenGen()
+	driveTokenGen()
 
 	// Lista os arquivos
-	tools.BackupRotine()
+	backupRotine()
 
 }
