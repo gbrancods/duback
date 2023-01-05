@@ -38,10 +38,10 @@ func DriveCredenGen() {
 		fmt.Println(err)
 	}
 
-	fmt.Println(string(content))
-
 	err = os.WriteFile("credentials.json", content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("Credenciais obtidas com sucesso!")
 }

@@ -1,53 +1,37 @@
 package drive
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"os/exec"
-	"time"
+
+	pg "github.com/habx/pg-commands"
 )
 
 type DBStruct struct {
-	Port     string
+	Port     int
 	Name     string
-	IP       string
+	Host     string
 	Password string
 	User     string
 }
 
 func BackupGen(db DBStruct) error {
 
-	d := time.Now().Day()
-	m := time.Now().Month()
-	y := time.Now().Year()
+	dump, _ := pg.NewDump(&pg.Postgres{
+		Host:     db.Host,
+		Port:     db.Port,
+		DB:       db.Name,
+		Username: db.User,
+		Password: db.Password,
+	})
 
-	date := fmt.Sprintf("%d-%d-%d", d, m, y)
-
-	arg1 := fmt.Sprintf("--dbname=postgresql://%s:%s@%s:%s/postgres", db.Name, db.Password, db.IP, db.Port)
-
-	arg2 := fmt.Sprintf("backup-%s-%s", db.Name, date)
-
-	cmd := exec.Command("pg_dump", arg1, ">", arg2)
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-
-	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
-		// TODO - send email
-	}
-
-	compareString := string("192.168.55.250:" + db.Port + " - accepting connections")
-	compareStringOut := string(out.String())
-
-	// Compara se as strings
-	if compareString == compareStringOut {
-		return nil
+	dumpExec := dump.Exec(pg.ExecOptions{StreamPrint: false})
+	if dumpExec.Error != nil {
+		fmt.Println(dumpExec.Error.Err)
+		fmt.Println(dumpExec.Output)
 	} else {
-		return errors.New("erro ao conectar com o banco")
+		fmt.Println("Dump success")
+		fmt.Println(dumpExec.Output)
 	}
+
+	return nil
 }
