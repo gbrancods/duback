@@ -1,4 +1,4 @@
-package main
+package rotines
 
 import (
 	"log"
@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-func backupRotine() {
-	//Define ticker
+func BackupRotine() {
 	ticker := time.NewTicker(5 * time.Second)
 
 	for range ticker.C {

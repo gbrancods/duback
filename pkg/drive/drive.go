@@ -1,4 +1,4 @@
-package main
+package drive
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 )
 
 // Exemplo de listagem de arquivos
-func listFiles() {
+func ListFiles() {
 	ctx := context.Background()
 	b, err := os.ReadFile("credentials.json")
 	if err != nil {
@@ -47,7 +47,7 @@ func listFiles() {
 	}
 }
 
-func createFile(name string, content io.Reader, parentId string) (*drive.File, error) {
+func CreateFile(name string, content io.Reader, parentId string) (*drive.File, error) {
 
 	mimeType := "text/plain"
 

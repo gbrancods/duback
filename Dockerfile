@@ -1,15 +1,25 @@
-FROM golang:1.19
+FROM ubuntu:latest
 
-WORKDIR /app
+ARG GO_VERSION
+ENV GO_VERSION=1.19
 
-COPY ./ ./
+RUN apt-get update
+RUN apt-get install -y wget git gcc
 
-RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-RUN wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | tee /etc/apt/trusted.gpg.d/pgdg.asc &>/dev/null
-RUN apt update
-RUN apt install postgresql postgresql-client -y
+RUN wget -P /tmp "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
 
-RUN go mod download
-RUN go build -o /duback
+RUN tar -C /usr/local -xzf "/tmp/go${GO_VERSION}.linux-amd64.tar.gz"
+RUN rm "/tmp/go${GO_VERSION}.linux-amd64.tar.gz"
 
-CMD [ "/duback" ]
+ENV GOPATH /go
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+
+WORKDIR $GOPATH
+
+COPY . .
+
+RUN go mod tidy
+RUN go build -o duback
+
+CMD ["/duback"]

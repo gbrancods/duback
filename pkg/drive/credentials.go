@@ -1,4 +1,4 @@
-package main
+package drive
 
 import (
 	"encoding/base64"
@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-type driveCreden struct {
+type Creden struct {
 	Installed struct {
 		ClientID                string   `json:"client_id"`
 		ProjectID               string   `json:"project_id"`
@@ -20,7 +20,7 @@ type driveCreden struct {
 	} `json:"installed"`
 }
 
-func driveCredenGen() {
+func CredenGen() {
 
 	credentialJsonStringB64 := os.Getenv("DRIVE_CREDENTIALS")
 
@@ -29,7 +29,7 @@ func driveCredenGen() {
 		panic(err)
 	}
 
-	var credentialJsonModel driveCreden
+	var credentialJsonModel Creden
 
 	json.Unmarshal([]byte(credentialJsonString), &credentialJsonModel)
 
@@ -46,14 +46,14 @@ func driveCredenGen() {
 	fmt.Println("Credenciais obtidas com sucesso!")
 }
 
-type driveToken struct {
+type Token struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	RefreshToken string `json:"refresh_token"`
 	Expiry       string `json:"expiry"`
 }
 
-func driveTokenGen() {
+func TokenGen() {
 
 	credentialJsonStringB64 := os.Getenv("DRIVE_TOKEN")
 
@@ -62,7 +62,7 @@ func driveTokenGen() {
 		panic(err)
 	}
 
-	var credentialJsonModel driveToken
+	var credentialJsonModel Token
 
 	json.Unmarshal([]byte(credentialJsonString), &credentialJsonModel)
 
