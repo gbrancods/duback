@@ -14,5 +14,8 @@ func main() {
 	drive.TokenGen()
 
 	// Inicia rotina de backup
-	rotines.BackupRotine()
+	go rotines.BackupRotine()
+
+	// Lista os arquivos
+	drive.ListFiles()
 }

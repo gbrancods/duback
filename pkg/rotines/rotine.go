@@ -15,7 +15,7 @@ func BackupRotine() {
 }
 
 func callB() {
-	cmd := exec.Command("./backup.sh")
+	cmd := exec.Command("./scripts/backup.sh")
 
 	err := cmd.Run()
 

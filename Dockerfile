@@ -1,25 +1,36 @@
+# stage de build
+FROM golang:1.19 AS build
+
+WORKDIR /app
+
+COPY . /app
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o duback cmd/main.go
+
+# stage imagem final
 FROM ubuntu:latest
 
-ARG GO_VERSION
-ENV GO_VERSION=1.19
+RUN apt update
 
-RUN apt-get update
-RUN apt-get install -y wget git gcc
+RUN apt install lsb-core -y && apt install wget -y
 
-RUN wget -P /tmp "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
 
-RUN tar -C /usr/local -xzf "/tmp/go${GO_VERSION}.linux-amd64.tar.gz"
-RUN rm "/tmp/go${GO_VERSION}.linux-amd64.tar.gz"
+RUN wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | tee /etc/apt/trusted.gpg.d/pgdg.asc &>/dev/null
 
-ENV GOPATH /go
-ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
-RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7FCC7D46ACCC4CF8 
 
-WORKDIR $GOPATH
+RUN apt update -y
 
-COPY . .
+RUN apt install postgresql-client -y
 
-RUN go mod tidy
-RUN go build -o duback
+WORKDIR /app
 
-CMD ["/duback"]
+COPY --from=build /app/duback ./
+
+RUN mkdir scripts 
+COPY --from=build /app/scripts/backup.sh ./scripts/backup.sh
+
+RUN mkdir backups
+
+CMD [ "./duback" ]
