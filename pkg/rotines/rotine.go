@@ -1,6 +1,7 @@
 package rotines
 
 import (
+	"duback/pkg/app"
 	"log"
 	"os/exec"
 	"time"
@@ -22,4 +23,6 @@ func callB() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	app.App()
 }

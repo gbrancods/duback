@@ -7,15 +7,12 @@ import (
 
 func main() {
 
-	// Gera as credentials
+	// Create credentials
 	drive.CredenGen()
 
-	// Gera o token
+	// Create token
 	drive.TokenGen()
 
-	// Inicia rotina de backup
-	go rotines.BackupRotine()
-
-	// Lista os arquivos
-	drive.ListFiles()
+	// Start backup rotine
+	rotines.BackupRotine()
 }
