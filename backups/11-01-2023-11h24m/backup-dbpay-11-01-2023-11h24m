@@ -1,0 +1,1058 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 15.1 (Debian 15.1-1.pgdg110+1)
+-- Dumped by pg_dump version 15.1 (Ubuntu 15.1-1.pgdg22.10+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: hdb_catalog; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+CREATE SCHEMA hdb_catalog;
+
+
+ALTER SCHEMA hdb_catalog OWNER TO postgres;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+ALTER SCHEMA public OWNER TO postgres;
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON SCHEMA public IS '';
+
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+
+
+--
+-- Name: gen_hasura_uuid(); Type: FUNCTION; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE FUNCTION hdb_catalog.gen_hasura_uuid() RETURNS uuid
+    LANGUAGE sql
+    AS $$select gen_random_uuid()$$;
+
+
+ALTER FUNCTION hdb_catalog.gen_hasura_uuid() OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: hdb_action_log; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_action_log (
+    id uuid DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    action_name text,
+    input_payload jsonb NOT NULL,
+    request_headers jsonb NOT NULL,
+    session_variables jsonb NOT NULL,
+    response_payload jsonb,
+    errors jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    response_received_at timestamp with time zone,
+    status text NOT NULL,
+    CONSTRAINT hdb_action_log_status_check CHECK ((status = ANY (ARRAY['created'::text, 'processing'::text, 'completed'::text, 'error'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_action_log OWNER TO postgres;
+
+--
+-- Name: hdb_cron_event_invocation_logs; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_cron_event_invocation_logs (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    event_id text,
+    status integer,
+    request json,
+    response json,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE hdb_catalog.hdb_cron_event_invocation_logs OWNER TO postgres;
+
+--
+-- Name: hdb_cron_events; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_cron_events (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    trigger_name text NOT NULL,
+    scheduled_time timestamp with time zone NOT NULL,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    tries integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    next_retry_at timestamp with time zone,
+    CONSTRAINT valid_status CHECK ((status = ANY (ARRAY['scheduled'::text, 'locked'::text, 'delivered'::text, 'error'::text, 'dead'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_cron_events OWNER TO postgres;
+
+--
+-- Name: hdb_metadata; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_metadata (
+    id integer NOT NULL,
+    metadata json NOT NULL,
+    resource_version integer DEFAULT 1 NOT NULL
+);
+
+
+ALTER TABLE hdb_catalog.hdb_metadata OWNER TO postgres;
+
+--
+-- Name: hdb_scheduled_event_invocation_logs; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_scheduled_event_invocation_logs (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    event_id text,
+    status integer,
+    request json,
+    response json,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE hdb_catalog.hdb_scheduled_event_invocation_logs OWNER TO postgres;
+
+--
+-- Name: hdb_scheduled_events; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_scheduled_events (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    webhook_conf json NOT NULL,
+    scheduled_time timestamp with time zone NOT NULL,
+    retry_conf json,
+    payload json,
+    header_conf json,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    tries integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    next_retry_at timestamp with time zone,
+    comment text,
+    CONSTRAINT valid_status CHECK ((status = ANY (ARRAY['scheduled'::text, 'locked'::text, 'delivered'::text, 'error'::text, 'dead'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_scheduled_events OWNER TO postgres;
+
+--
+-- Name: hdb_schema_notifications; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_schema_notifications (
+    id integer NOT NULL,
+    notification json NOT NULL,
+    resource_version integer DEFAULT 1 NOT NULL,
+    instance_id uuid NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT hdb_schema_notifications_id_check CHECK ((id = 1))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_schema_notifications OWNER TO postgres;
+
+--
+-- Name: hdb_version; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_version (
+    hasura_uuid uuid DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    version text NOT NULL,
+    upgraded_on timestamp with time zone NOT NULL,
+    cli_state jsonb DEFAULT '{}'::jsonb NOT NULL,
+    console_state jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE hdb_catalog.hdb_version OWNER TO postgres;
+
+--
+-- Name: cards_tokens; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.cards_tokens (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    card_token character varying(50) NOT NULL
+);
+
+
+ALTER TABLE public.cards_tokens OWNER TO postgres;
+
+--
+-- Name: cards_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.cards_tokens_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.cards_tokens_id_seq OWNER TO postgres;
+
+--
+-- Name: cards_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.cards_tokens_id_seq OWNED BY public.cards_tokens.id;
+
+
+--
+-- Name: payments; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.payments (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    seller_id integer NOT NULL,
+    erp_order_id integer NOT NULL,
+    budget_id integer NOT NULL,
+    price integer NOT NULL,
+    created_at integer NOT NULL,
+    status integer NOT NULL,
+    deleted_at integer,
+    pay_id character varying,
+    installments integer NOT NULL,
+    payment_type character varying,
+    pix_copy_and_paste character varying(200)
+);
+
+
+ALTER TABLE public.payments OWNER TO postgres;
+
+--
+-- Name: payments_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.payments_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.payments_id_seq OWNER TO postgres;
+
+--
+-- Name: payments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.payments_id_seq OWNED BY public.payments.id;
+
+
+--
+-- Name: super_links; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.super_links (
+    id integer NOT NULL,
+    link_id character varying(100) NOT NULL,
+    cielo_order_id character varying(100),
+    seller_erp_id integer NOT NULL,
+    client_erp_id integer NOT NULL,
+    client_name character varying NOT NULL,
+    price integer NOT NULL,
+    name character varying NOT NULL,
+    created_at character varying(50) NOT NULL,
+    expiration_at character varying(50) NOT NULL,
+    status_pay character varying,
+    antifraud integer,
+    type character varying,
+    installments integer,
+    description character varying,
+    finished_at character varying(50),
+    short_url character varying(300),
+    tid character varying(32),
+    nsu character varying(6),
+    authorization_code character varying(30),
+    error_code character varying(10),
+    card_masked_number character varying(19),
+    brand character varying(10),
+    payment_type character varying(11),
+    payer_full_name character varying(256),
+    payer_email character varying(64),
+    payer_address_street character varying(256),
+    payer_address_complement character varying(64),
+    payer_address_district character varying(64),
+    payer_address_city character varying(64),
+    payer_address_state character varying(2),
+    payer_address_number character varying(8),
+    payer_phone character varying(11),
+    payer_identity character varying(14),
+    comments character varying(5000)
+);
+
+
+ALTER TABLE public.super_links OWNER TO postgres;
+
+--
+-- Name: super_link_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.super_link_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.super_link_id_seq OWNER TO postgres;
+
+--
+-- Name: super_link_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.super_link_id_seq OWNED BY public.super_links.id;
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    id integer NOT NULL,
+    eco_id integer NOT NULL,
+    fire_id character varying(50) NOT NULL,
+    erp_id integer,
+    ws_hash character varying
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.users_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.users_id_seq OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
+
+
+--
+-- Name: cards_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cards_tokens ALTER COLUMN id SET DEFAULT nextval('public.cards_tokens_id_seq'::regclass);
+
+
+--
+-- Name: payments id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.payments ALTER COLUMN id SET DEFAULT nextval('public.payments_id_seq'::regclass);
+
+
+--
+-- Name: super_links id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.super_links ALTER COLUMN id SET DEFAULT nextval('public.super_link_id_seq'::regclass);
+
+
+--
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Data for Name: hdb_action_log; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_action_log (id, action_name, input_payload, request_headers, session_variables, response_payload, errors, created_at, response_received_at, status) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_cron_event_invocation_logs; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_cron_event_invocation_logs (id, event_id, status, request, response, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_cron_events; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_cron_events (id, trigger_name, scheduled_time, status, tries, created_at, next_retry_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_metadata; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_metadata (id, metadata, resource_version) FROM stdin;
+1	{"sources":[],"version":3}	1
+\.
+
+
+--
+-- Data for Name: hdb_scheduled_event_invocation_logs; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_scheduled_event_invocation_logs (id, event_id, status, request, response, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_scheduled_events; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_scheduled_events (id, webhook_conf, scheduled_time, retry_conf, payload, header_conf, status, tries, created_at, next_retry_at, comment) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_schema_notifications; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_schema_notifications (id, notification, resource_version, instance_id, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_version; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_version (hasura_uuid, version, upgraded_on, cli_state, console_state) FROM stdin;
+eb66f1c4-bef4-4473-9b1f-16159f332c31	47	2022-02-17 11:43:30.664701+00	{}	{}
+\.
+
+
+--
+-- Data for Name: cards_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.cards_tokens (id, user_id, card_token) FROM stdin;
+10	10	c067f9eb-2222-4655-aed8-f574613e5d80
+11	10	092d8bcc-219d-4d8d-95b1-0d1d641b0bc3
+\.
+
+
+--
+-- Data for Name: payments; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.payments (id, user_id, seller_id, erp_order_id, budget_id, price, created_at, status, deleted_at, pay_id, installments, payment_type, pix_copy_and_paste) FROM stdin;
+1	3	10	15	20	1500000	1647887716	0	0		1	\N	\N
+2	32	43	6	98	0	1651515465	0	0		0	CreditCard	\N
+3	32	43	6	98	0	1651516181	0	0		0	CreditCard	\N
+4	32	43	6	98	15700	1651516214	1	0	f12d3143-e1f5-4068-b192-b5c809eeba9d	1	CreditCard	\N
+5	32	43	6	98	15700	1651517475	1	0	b4a894d7-d94d-4561-b7db-5a6663a2ec20	1	CreditCard	\N
+6	32	43	6	98	15700	1651518091	1	0	26484eda-2631-49f7-b9d6-9ea0d5879605	1	CreditCard	\N
+7	10	43	6	98	15700	1651518157	1	0	26638893-b065-4dc9-8202-09f8fc1c9f9c	1	CreditCard	\N
+8	10	43	6	98	15700	1651518376	1	0	1133dcaa-ddc0-4156-9935-7cba5c8d2263	1	CreditCard	\N
+9	10	43	6	98	15700	1651518788	1	0	6c5225e3-6521-412f-92bf-14a05ed80844	1	CreditCard	\N
+10	10	43	6	98	15700	1651518811	1	0	7099901e-682e-4348-b37e-c7187ae629c6	1	CreditCard	\N
+11	10	43	6	98	15700	1651518876	1	0	3007b62d-5e3d-4cfc-919a-a5136bb7f1d1	1	CreditCard	\N
+12	10	43	6	98	15700	1651518895	1	0	9441b9be-4d50-4791-8bca-a35d70100b3e	1	CreditCard	\N
+13	10	43	6	98	0	1651519875	0	0		0		\N
+14	10	43	6	98	0	1651520408	0	0		0		\N
+15	10	43	6	98	0	1651520469	0	0		0		\N
+16	10	43	6	98	15700	1651521267	0	0	fe9c1175-5bb2-4a01-822a-c3025db09fdc	1	DebitCard	\N
+17	10	43	6	98	15700	1651521298	0	0	c31033c3-b224-446a-be78-4826500eac63	1	DebitCard	\N
+18	10	43	6	98	0	1651522073	0	0		1		
+19	10	43	6	98	0	1651522134	0	0		1		
+20	10	43	6	98	0	1651522186	0	0		1		
+21	10	43	6	98	0	1651522204	0	0		1		
+22	10	43	6	98	0	1651522508	0	0		1		
+23	10	43	6	98	0	1651573646	0	0		1		
+24	10	43	6	98	0	1651574008	0	0		1		
+25	10	43	6	98	0	1651574154	0	0		1		
+26	10	43	6	98	0	1651574220	0	0		1		
+27	10	43	6	98	0	1651574272	0	0		1		
+28	10	43	6	98	0	1651574308	0	0		1		
+29	10	43	6	98	0	1651574369	0	0		1		
+30	10	43	6	98	0	1651574450	0	0		1		
+31	10	43	6	98	0	1651574933	0	0		1		
+32	10	43	6	98	0	1651575226	0	0		1		
+33	10	43	6	98	0	1651575243	0	0		1		
+34	10	43	6	98	0	1651575258	0	0		1		
+35	10	43	6	98	0	1651596657	0	0		0		
+36	10	43	6	98	0	1651596920	0	0		0		
+37	10	43	6	98	0	1651596957	0	0		0		
+38	10	43	6	98	0	1651597091	0	0		0		
+39	10	43	6	98	0	1651597117	0	0		0		
+40	10	43	6	98	0	1651597151	0	0		0		
+\.
+
+
+--
+-- Data for Name: super_links; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.super_links (id, link_id, cielo_order_id, seller_erp_id, client_erp_id, client_name, price, name, created_at, expiration_at, status_pay, antifraud, type, installments, description, finished_at, short_url, tid, nsu, authorization_code, error_code, card_masked_number, brand, payment_type, payer_full_name, payer_email, payer_address_street, payer_address_complement, payer_address_district, payer_address_city, payer_address_state, payer_address_number, payer_phone, payer_identity, comments) FROM stdin;
+145	e2d3315d-db6f-414b-bf3d-fbed3ee055c0	6b90f0265d454829b4ea9cdf2690cb11	853	242390	M F DE SOUZA SERRALHERIA EIRELI	330000	601955	2022-10-03 10:30:17	2022-10-06 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601955	2022-10-05T09:48:23.983	https://cielolink.com.br/3SzmpTO	1103649563229L738J8E	203012	682178	00	409601******4125	Visa	CreditCard	Wellington carvalho	stellanega@hotmail.com	 Rua Nelson Batista d lima	 Rua Nelson Batista d lima	Rio verde	Água Clara	MS	36	67999404032	84587865168	
+254	129e82df-d0d3-422c-a1c7-9e7c09d792ba	9df4e6eb4805485d85d9f56dd2b64c28	965	249961	FERNANDO DE AQUINO CAMILO	2613900	604112/604111/604108	2022-11-04 09:47:34	2022-11-07 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 604112/604111/604108	2022-11-04T09:58:29.823	https://cielolink.com.br/3WwLRf9	1103649563235KPN8OIE	223004	028428	00	553665******3199	Master	CreditCard	Marcia Barros	marciarbarros05@gmail.com	Avenida Capitão Olinto Mancini	Avenida Capitão Olinto Mancini	Centro	Três Lagoas	MS	950	67992062744	65438884900	
+61	61f129f4-b3ab-46d8-a21a-cdc640afb3a4	e45f358ec7a849d5b4611d4f3f638af9	853	258347	NICOLINA DA COSTA ALVES	343657	600594/600591	2022-09-14 07:37:03	2022-09-19 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 600594/600591	2022-09-14T10:44:36.613	https://cielolink.com.br/3Uc2Tyb	110364956321M28EI78E	184012	295978	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+76	77d79314-cf7a-4149-afb5-87fff2a091b6	172004e21757410daf41d0186e3a0066	955	251057	LOPES E FREITAS LTDA	370000	600731	2022-09-15 08:20:35	2022-09-19 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 600731	2022-09-15T11:37:14.857	https://cielolink.com.br/3RZ2tcE	110364956321N0403QVE	188004	671268	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+91	2934a14a-25db-41dc-a526-0a268a2f6d58	21f1d195f28a4b10a42813d660c053e7	965	258395	JANAINA ROLDAO DE SOUZA	170000	601285	2022-09-22 13:58:10	2022-09-26 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 601285	2022-09-22T14:18:05.433	https://cielolink.com.br/3C1tHdn	110364956321TH5K0ONE	197004	310782	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+104	c097a2db-4c4c-460f-81a1-51ee564f1fde	f5c07b3cadcb4d6580cd29634401248a	965	230468	SERRALHERIA JT LTDA	1178958	601718	2022-09-28 15:06:13	2022-10-03 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601718	2022-09-29T09:42:10.31	https://cielolink.com.br/3rguJvQ	110364956322423N422E	200006	620756	00	651652******7279	Elo	CreditCard	Jener Marin	jenerok@hotmail.com	Avenida Aldair Rosa de Oliveira	Avenida Aldair Rosa de Oliveira	Interlagos	Três Lagoas	MS	1700	67981117858	56223560168	Comentário teste
+50	f251fa12-6be5-4c46-aa76-e8d82342c64d	ba9eedbd8b4d40128415f6a417021328	962	258294	LEONARDO ALQUIMIM GONCALVES	446200	600126	2022-09-05 14:37:08	2022-09-08 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 600126	2022-09-05T14:53:17.827	https://cielolink.com.br/3TNTQmD	110364956321DLGRIJTE	185004	075864	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+51	2bd8966e-59fe-4752-b846-93f9131b44b0	78d5171cd17b4e98afce11ae57163bad	958	253358	FABIO SANTOS SANTANA 09820802636	100000	600141	2022-09-05 16:31:06	2022-09-08 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 600141	2022-09-05T20:54:24.63	https://cielolink.com.br/3TOeEe2	110364956321DLHCQIGE	187002	948711	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+48	eb25a530-5c10-4fde-a27e-9fc26ad0da36	4eb0556b65194c88a3fe125241d34e7d	965	248207	WELLINGTON DE OLIVEIRA MENEGUIM	413320	600034/600033	2022-09-02 16:39:01	2022-09-05 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 600034/600033	2022-09-07T18:00:30.503	https://cielolink.com.br/3AHjjFL	110364956321FH8KAMKE	186004	092403	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+46	537dc132-fcd1-4192-b055-dc4d88f5a133	42a3c2788cf644b1aad6981e9a2103d5	965	258252	ANTONIO ROBERTO CANDIDO DIAS	208895	599612	2022-08-26 16:59:58	2022-08-29 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 599612	2022-08-26T17:22:12.72	https://cielolink.com.br/3PSVNeu	1103649563214AT0NCEE	176018	T65221	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+44	9cd28523-dab8-4610-8ac2-0b65477f6b19	d928dd3ad3304c02928066e7bb804b3f	962	252822	ODAIR CESAR RODRIGUES	753800	599545/599544	2022-08-26 14:40:34	2022-08-29 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 599545/599544	2022-09-02T15:20:13.523	https://cielolink.com.br/3RchqHF	110364956321ARUHSN1E	183002	201058	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+47	9ac33919-3f76-4e6f-a525-d023a695fb08	948703c0d3bb4c2eae5f47eb7a060251	962	256868	ALAN VITOR LEITE	141800	600017	2022-09-02 14:03:46	2022-09-05 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 600017	2022-09-02T16:04:47.643	https://cielolink.com.br/3q7AhIu	110364956321ARUJGT6E	183004	T00004	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+54	8ef48c34-51c7-49b6-9864-778609764dd4	d2cc9859a9c74cb38503094c307724b0	962	251842	LAURA LACERDA FERREIRA SILVA	239200	599946	2022-09-12 09:30:53	2022-09-15 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 599946	2022-09-12T10:23:52.553	https://cielolink.com.br/3DfADof	110364956321K6FULD4E	187008	884273	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+53	08ac9306-0c24-4d1d-8a1b-5ca01a4ce5f3	6dcbcee3b977437298ba2902911c4129	955	224270	G S MADEIRAS LTDA ME	475000	600408	2022-09-09 14:18:43	2022-09-12 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 600408	2022-09-09T14:24:11.25	https://cielolink.com.br/3L5WlNs	110364956321HCVAQ7DE	185008	493515	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+56	4c7289dd-e964-4b7b-ab1b-4d292dfed018	afb8c82c40114374b965770d5bea7386	878	239094	LUCIMEIRE ALVES DE SOUZA	132000	600534	2022-09-12 15:42:13	2022-09-15 23:59:59	Paid	4	Asset	1	ITEM REFERENTE AO PEDIDO ERP 600534	2022-09-12T16:01:38.103	https://cielolink.com.br/3quLLG7	110364956321K6GFSEQE	186006	613541	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+55	e338ebad-0caa-47b9-9865-e18e370c55a9	7fcad33655ce459d9c381e1ff9a8b303	965	227292	ANDERSON DA SILVA FERREIRA	2203190	600475/600473	2022-09-12 11:20:44	2022-09-15 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 600475/600473	2022-09-12T16:21:47.953	https://cielolink.com.br/3RPeAcc	110364956321K6GGPOJE	184008	614544	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+77	765482a6-65ed-4ede-ab41-e006fc6b8ea7	ac8cf73f5fce4e229af61de48db41f48	955	257141	WASCAR MARQUES QUEIROZ \t	570300	600740	2022-09-15 08:21:31	2022-09-19 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 600740	2022-09-19T11:03:58.66	https://cielolink.com.br/3LgNQ1W	110364956321QONRCB8C	025001	488535	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+147	e2b13ffb-db92-48f5-96a6-d82e5a8258a4	75f0e6e9c0614a90982d435bca0b11e0	964	258289	FRANCISLEI MENDES SILVA	209500	602013	2022-10-03 16:32:58	2022-10-06 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602013	2022-10-06T14:08:27.62	https://cielolink.com.br/3STChAA	110364956322AJ34A3QE	204014	080709	00	489167******5112	Visa	CreditCard	Francislei silva	willianacp2.0@hotmail.com	Avenida Raul Macedo	Avenida Raul Macedo	Esperança	Prata	MG	77	34999668485	M9242692	
+32	525d3549-1c83-4420-88e0-181bb0a11ed8	202a99ffa0684cc5b48bc4f47ec4dabb	962	251842	LAURA LACERDA FERREIRA SILVA	47800	596490	2022-07-20 09:47:42	2022-07-23 00:00:00	Paid	1	Asset	1	ITENS REFERENTE AO ERP 596490	2022-07-20T12:05:45.143	https://cielolink.com.br/3yOVlYa	1103649563202DJTCMIE	161002	358514	00	teste	teste	teste	teste	teste	teste	teste	teste	teste	SP	teste	teste	teste	teste
+85	0ff0bde6-ed9d-4904-873c-d39fa43487d7	1250853113c4412eb4c8a987562bfd1d	853	257912	LETICIA FERREIRA DOS SANTOS	85000	601009/600883	2022-09-19 15:20:36	2022-09-22 23:59:59	Paid	1	Asset	2	ITENS REFERENTES AOS PEDIDOS ERP 601009/600883	2022-09-20T13:00:40.35	https://cielolink.com.br/3SiGgWK	110364956321RLCSTEBE	198002	779983	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+87	f7d0b540-e1db-4d55-bedd-800478ed3b0f	05509f916426436c853925502289b639	959	255190	TONISGLEY APARECIDO ANDRADE FERR	1120000	600996/600982	2022-09-20 10:47:59	2022-09-23 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 600996/600982	2022-09-20T10:58:36.067	https://cielolink.com.br/3BUDWA5	110364956321RLCA6NKE	197002	583360	00	425850******1633	Visa	CreditCard	Maksueide Barros	maksueidealvesbarros@gmail.com	Avenida Marechal Deodoro	Avenida Marechal Deodoro	XV de Novembro	Frutal	MG	424	34984440660	09146907602	\N
+100	312b0002-d573-4e53-a532-7fd4fbbd354a	0c8a2f82de2345e38efe2c5652f07210	962	251842	LAURA LACERDA FERREIRA SILVA	429000	601565/601329/601325	2022-09-27 08:33:52	2022-09-30 23:59:59	Paid	1	Asset	2	ITENS REFERENTES AOS PEDIDOS ERP 601565/601329/601325	2022-09-27T15:45:49.91	https://cielolink.com.br/3SzrLy7	11036495632226DQ8EEE	200004	180012	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	\N
+101	366cd8ba-aff2-4574-916d-41c037856c92	27163c4b3fac4f5e87709c5819ab2f2a	955	240391	GISELE MARTINS DOS SANTOS	412800	601637	2022-09-27 15:00:59	2022-09-30 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601637	2022-09-28T10:58:44.16	https://cielolink.com.br/3RbILte	110364956322348HIM2E	202002	684182	00	406655******5301	Visa	CreditCard	Gisele Santos	giselemartinsmar@hotmail.com	Avenida Manoel Afonso Cancela	Avenida Manoel Afonso Cancela	Setor Norte Industrial	Ituiutaba	MG	471	34999667040	09661596670	\N
+107	ae41eba5-1603-45e3-a7fc-a19cf2eba618	df6a8a92b8c6448282997dfbe69db34f	965	248572	RICHARD GONCALVES DOS SANTOS	497901	601790/601789/601788	2022-09-29 11:12:35	2022-10-03 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 601790/601789/601788	2022-09-29T12:03:50.63	https://cielolink.com.br/3y1rR9I	110364956322423T7T0E	200008	634791	00	406655******3543	Visa	CreditCard	Renata Dantas	redantas88@gmail.com	 Ribeirão Prata	 Ribeirão Prata	Bela vista da Lagoa	Três Lagoas	MS	2367	67996865331	38694665883	
+139	7558233c-f1a5-466e-a996-d1ad0782550a	df4882049a444edcb0e13d84441cd246	955	254921	JOAQUIM MARTINS DE SOUZA	450000	601087	2022-09-30 10:02:25	2022-10-03 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601087	2022-09-30T12:03:42.723	https://cielolink.com.br/3dVEJHG	1103649563224VVD6LFE	201006	471502	00	538164******7360	Master	CreditCard	Valdomiro Neto	valentin_neto@yahoo.com	Rua Pastor Francisco Venâncio Pinheiro	Rua Pastor Francisco Venâncio Pinheiro	Conjunto Rio Claro I	Jataí	GO	22	64999025733	96454644120	
+129	db3b8d25-5c59-4e69-8354-213d66d59c1f	d5845f3f78d54d2882af353ae181d7c5	964	258411	MELRY ANNE BEATRIZ FERREIRA DA S	1000000	601802	2022-09-29 15:51:14	2022-10-03 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601802	2022-09-29T17:35:46.927	https://cielolink.com.br/3BTQaaP	110364956322424A5RKE	202004	098498	00	490144******5143	Visa	CreditCard	Melry Silva	studio.melfit@hotmail.com	Rua Miranda	Rua Miranda	Primavera 2	Prata	MG	175	34996898780	37591222000136	
+92	9257bf4a-990a-4526-9766-28ce1b3206b9	efb9b249cf4a4cefbe470cb7d378dd49	965	248572	RICHARD GONCALVES DOS SANTOS	170000	601293	2022-09-22 14:07:52	2022-10-02 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 601293	2022-09-29T12:31:43.547	https://cielolink.com.br/3qXxkKT	110364956322424816IE	200012	857352	00	474525******6475	Visa	CreditCard	Richard Santos	richardsaveirog3@gmail.com	Rua Manoel Pedro de Campos	Rua Manoel Pedro de Campos	Santos Dumont	Três Lagoas	MS	2253	67991174982	02240626119	\N
+141	6134e954-36ea-4034-b077-531481ef561c	7aec9b22c256425991a294082c54a8de	964	258436	APLIC E REVEST DECORACOES PARAMI	1012000	601892	2022-09-30 13:47:27	2022-10-03 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601892	2022-09-30T14:17:44.313	https://cielolink.com.br/3rlcyVK	1103649563224VVJFHGE	203010	174169	00	544731******0307	Master	CreditCard	APlIC LTDA	aplicerevest@hotmail.com	Avenida Argentina	Avenida Argentina	São José	Pará de Minas	MG	444	3732323973	31264461000103	
+108	1332552f-9958-4387-8cb9-194d13f5f3c3	a3f723649eef45c79ca3ba575762cd06	962	257651	LUCIANO AFONSO QUEIROZ	232500	601768	2022-09-29 14:49:42	2022-10-03 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601768	2022-09-29T16:43:22.383	https://cielolink.com.br/3E6nIpa	1103649563224247UR5E	200010	165491	00	558120******7627	Master	CreditCard	Rony Osaki	serralheriaosaki@hotmail.com	 José cândido Alves 	 José cândido Alves 	Universitário 2	Paranaíba	MS	120	67981161913	66376092187	
+140	0f318a3d-cd98-4249-8e2a-152586ac09df	36ebf7092e2e41d683f597402a9cbd56	962	9290	LEONEL PERES DE JESUS	243786	601870/601869	2022-09-30 10:23:48	2022-10-03 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 601870/601869	2022-10-03T15:23:36.077	https://cielolink.com.br/3y4WU4R	1103649563227PGQGAAE	204008	233257	00	441524******6071	Visa	CreditCard	Alexsandro Melo	alexmelo.projetos@hotmail.com	Rua Vera Lúcia Ovidio	Rua Vera Lúcia Ovidio	universitário 	Paranaiba 	MS	80	67812608882	87729067153	
+125	7db53878-61a3-4034-9a6e-57a00b1db857	c41262a2630b4bc4835d47c5c19be15f	965	244577	MORAES E FERREIRA INCORP IMOB LT	3795688	601820/601818	2022-09-29 15:44:30	2022-10-03 23:59:59	Paid	4	Asset	7	ITENS REFERENTES AOS PEDIDOS ERP 601820/601818	2022-10-03T22:32:32.317	https://cielolink.com.br/3xZwmli	1103649563227RF8KTPC	026001	006899	00	496045******0116	Visa	CreditCard	Leonardo Moraes	leonardo_mr@hotmail.com.br	Avenida Dr Eloy M. Chaves	Avenida Dr Eloy M. Chaves	Centro	Três Lagoas	MS	149	67981920014	34427549845	
+152	03ddb473-b191-4a39-8f5a-631a3ceacc46	2d144f7e220f4cb79b66fd66db1ca102	965	227242	MARCELINO PEREIRA DIAS BARBOSA	523446	602130/602129	2022-10-05 11:35:20	2022-10-10 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602130/602129	2022-10-05T12:07:00.547	https://cielolink.com.br/3RGYVuK	1103649563229L7B0A9E	202010	065662	00	522840******1007	Master	CreditCard	Thiago Giordano	giordanothiago@gmail.com	Rua Elmano Soares	Rua Elmano Soares	Centro	Três Lagoas	MS	2240	11965772529	34806307823	
+82	46ddb841-ce48-4fb7-8b1e-51b6bff87165	412cfd16b1f04789a1f7cad56fcf5c70	965	230833	SCHEILA CRISTINA DA SILVA SANTOS	293000	600824/600823	2022-09-16 08:00:09	2022-09-19 23:59:59	Paid	1	Asset	1	ITENS REFERENTES AOS PEDIDOS ERP 600824/600823	2022-09-16T09:05:46.043	https://cielolink.com.br/3xtHHcZ	110364956321NTUVI03E	191002	047392	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+98	279a13ae-b2ab-48f0-9692-f265f376ae9e	f799141450b34591aceb024a5c3cb5fc	961	258402	MARIA DE LOURDES FERREIRA DOS SA	249075	601431	2022-09-23 16:59:36	2022-09-26 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601431	2022-09-24T11:14:30.57	https://cielolink.com.br/3C1vhMd	110364956321VCRLGVVE	198006	142577	00	544731******1899	Master	CreditCard	MARIA AGUIAR	mferreiradossantosaguiar@gmail.com	Avenida Antônio Trajano dos Santos 	Avenida Antônio Trajano dos Santos 	Jardim Morumbi 	Três Lagoas	MS	3280	67992481274	59546875104	\N
+102	6512db65-ce10-404d-8606-e42c2886cc39	c5d85f5fc74242a99aea841711652e22	964	253805	BRUNO DE ALMEIDA MAMEDE 04598019	75250	601703	2022-09-28 13:24:37	2022-10-03 23:59:59	Paid	4	Asset	3	ITEM REFERENTE AO PEDIDO ERP 601703	2022-09-28T14:12:05.763	https://cielolink.com.br/3Rli6dz	110364956322348POGSE	203002	550584	00	516292******4702	Master	CreditCard	Bruno Mamede	contato@minaseletromotores.com.br	 Rua São Paulo	 Rua São Paulo	Edna	Prata	MG	416	34999991256	12470319000160	\N
+99	bd6646d8-4d90-471c-a98b-263b76034895	d0a8ba2400fe4d069832de28f24f4869	965	227292	ANDERSON DA SILVA FERREIRA	173358	601552	2022-09-26 17:19:52	2022-09-29 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601552	2022-09-27T13:38:42.693	https://cielolink.com.br/3xX5VNg	11036495632226DLNA4E	200002	384056	00	515590******2209	Master	CreditCard	Amarildo Junior	avjunior12@yahoo.com.br	Rua Santiago Manoel Fernández	Rua Santiago Manoel Fernández	Nova Três Lagoas	Três Lagoas	MS	2649	67992472523	31963567870	\N
+94	f15e253c-c6ad-459b-bc3e-54f54364c965	97d89615c2a34d0b8ad666e9fc7d7981	965	255644	NERIACO DISTRIBUIDORA DE FERRAGE	303750	601257	2022-09-23 09:57:50	2022-09-26 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601257	2022-09-23T10:53:57.92	https://cielolink.com.br/3qZquEM	110364956321UF0KKB5E	199006	117210	00	650907******4278	Elo	CreditCard	Felipe Santos	lucas.diego@neriaco.com	Rua Tiradentes	Rua Tiradentes	Santos Dumont	Três Lagoas	MS	36	67992207467	34145081000130	\N
+86	4c44585c-b7ad-4879-a622-7d52f8d8fdfe	5478ec6c9d9b4ab5821239723d3b9a13	955	254323	JOB FERNANDES VALLE DE OLIVEIRA	64000	601039	2022-09-19 16:48:48	2022-09-22 23:59:59	Paid	1	Asset	1	ITEM REFERENTE AO PEDIDO ERP 601039	2022-09-20T10:19:40.69	https://cielolink.com.br/3BOFdIR	110364956321RLC3SVAE	196002	330978	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+79	d1b28d67-67a2-4bb9-b064-a2dad54d820e	40d9dfc8fa9241ebb89155a8e7346155	962	258352	LUIS CESAR SCATENA	2130000	600785/600783	2022-09-16 07:12:31	2022-09-19 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 600785/600783	2022-09-16T09:13:05.213	https://cielolink.com.br/3dnsOSY	110364956321NTUUNEUE	192002	094239	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+84	be31d5b9-1aa2-41df-8c84-250d6d673e61	2ac26d6456614c1890f2af9248ead699	878	258120	MATEUS JUNIOR FERREIRA DE OLIVEI	130475	600833	2022-09-19 07:37:20	2022-09-22 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 600833	2022-09-19T10:16:02.373	https://cielolink.com.br/3LmHiPz	110364956321QONIVG0C	024001	647202	00	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+96	1079dc34-ece3-4f4d-a230-5db640d8804d	d863247fab9f45ea9d6365a2073db3e6	955	258389	GABRIELA DIAS DE ALMEIDA	1900000	601408	2022-09-23 13:47:58	2022-09-26 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601408	2022-09-23T16:46:04.653	https://cielolink.com.br/3f9dV7b	110364956321UF146UIE	198004	660294	00	651652******6997	Elo	CreditCard	Eduardo Ferreira	dhueduardo@hotmail.com	 Rua Joaquim Camilo 	 Rua Joaquim Camilo 	Morada dos sonhos 	Caçu	GO	705	64984060165	89732421134	\N
+81	9fbd8fe4-353b-41d4-8a1d-6c28c2b2c5ee	b27c9c0562d04edeb3da6301682bb505	962	258357	VIA BRASIL PRESTADORA DE SERVICO	2693100	600807/600358	2022-09-16 07:13:29	2022-09-19 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 600807/600358	2022-09-16T11:09:30.27	https://cielolink.com.br/3S5DVys	110364956321NTV4AMLE	193002	020143	00	553665******7302	Master	CreditCard	Fernanda Bock	fernanda.serrams@gmail.com	Rua Valdeci Vasconcelos	Rua Valdeci Vasconcelos	Parque São Carlos	Três Lagoas	MS	S/N	67984247597	00848512103	\N
+93	8a95c62f-77f5-4fc8-9a90-6760364694d7	228ad27a17a546bba3e906517c6d97d0	965	258398	GILSON DE SOUZA ALMEIDA	161100	601347/601346	2022-09-23 09:56:10	2022-09-26 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 601347/601346	2022-09-23T10:17:09.553	https://cielolink.com.br/3SkPMsQ	110364956321UF0IGBLE	195004	163651	00	485464******1020	Visa	CreditCard	Rosa Bastos	rosaegilson03@gmail.com	 Avenida nossa senhora de Guadalupe 	 Avenida nossa senhora de Guadalupe 	Vestia 	Selvíria	MS	476	67981640476	05996051117	\N
+97	427b3245-ff58-4b15-a26f-288a44d7f760	6fba0bbc813f45f6b657eb38657bfcf9	962	258403	NILSON FREITAS DE ARAUJO	1570000	601414/601413	2022-09-23 14:45:07	2022-10-02 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 601414/601413	2022-09-29T15:39:23.54	https://cielolink.com.br/3BZIggr	1103649563224245S44E	203004	033625	00	496045******0111	Visa	CreditCard	JEAN ARAUJO	FISCAL@GALPAOCENTER.COM.BR	AVENIDA PRESIDENTE DUTRA	AVENIDA PRESIDENTE DUTRA	BOM JESUS	Cassilândia	MS	3033	6735962425	78021340134	\N
+103	70d873ed-e72c-4458-9885-0e9cdbf44e87	cf126c2d615c42e98a3ecf245fac9add	964	232785	VIDRACARIA SOUSA E SILVA LTDA	448000	601672	2022-09-28 13:25:05	2022-10-03 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601672	2022-09-30T08:25:03.17	https://cielolink.com.br/3SGwb6s	1103649563224VV2O9ME	204004	245964	00	552693******5178	Master	CreditCard	José Sousa	vidracariasousaesilva@hotmail.com	 rua Vereador Toninho Bisinoto 	 rua Vereador Toninho Bisinoto 	jatobá 	Conquista	MG	183	34998242208	01702478645	\N
+177	3842a706-6938-4610-83ef-3e2602444443	59ae867d35c94a4ea0c619e7ca50570b	955	258389	GABRIELA DIAS DE ALMEIDA	800000	602290/602284/602283	2022-10-10 07:15:39	2022-10-13 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 602290/602284/602283	2022-10-10T09:45:38.13	https://cielolink.com.br/3EsQtMM	110364956322EAFISOTE	205002	048716	00	543882******4103	Master	CreditCard	Lucas silva	lucasroseno1476@gmail.com	 Av Clarice machado Guimarães 	 Av Clarice machado Guimarães 	morada dos sonhos 	Caçu	GO	1272	64999918658	01717909108	
+255	3cb7db78-6210-455f-9069-46be9f2e764c	a359c97475ba46be8a577342eb6d16c5	961	253429	FERNANDO CARDOSO VIEIRA	373600	604013/604011	2022-11-04 10:29:37	2022-11-07 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 604013/604011	2022-11-04T13:15:38.773	https://cielolink.com.br/3sX2SBx	1103649563235KQ2GLKE	224004	364336	00	534696******9858	Master	CreditCard	Larissa Uchoa	larauchoa@outlook.com	rua José Vicente vitiriti 	rua José Vicente vitiriti 	jardim santa maria	Bataguassu	MS	666	67981470016	05041014124	
+151	fa7aaf4e-6f31-4053-b428-a194a6cd8182	5ecbab51b44e4d91b6b2298f6faca3b8	955	253752	JULIO SILVA NETO	1345500	601832/601734	2022-10-05 11:29:48	2022-10-10 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 601832/601734	2022-10-05T14:29:15.643	https://cielolink.com.br/3SG7E1A	1103649563229L7ILOAE	202012	242023	00	547408******6438	Master	CreditCard	Perfil Eireli	perfilconstrutorasv@hotmail.com	 Praça Francisco dos Reis Goulart 	 Praça Francisco dos Reis Goulart 	Centro 	Santa Vitória	MG	00	34996724683	21667975000148	
+155	f5180a74-4ebc-47d4-b011-8866911b2f2e	2563e012a1014da4a15ca93d2ec2108b	965	255326	ALESSANDRO DA SILVA CARVALHO 378	398191	602155/602153	2022-10-05 15:58:36	2022-10-10 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602155/602153	2022-10-05T19:49:19.59	https://cielolink.com.br/3STGvb6	1103649563229L7UFIQE	201014	042601	00	543882******8658	Master	CreditCard	Rosimeire Oliveira	rosi.1912@hotmail.com	Rua Urias Ribeiro	Rua Urias Ribeiro	Santa Luzia	Três Lagoas	MS	143	67991332262	86801090100	
+156	f9ece120-5613-4755-a3fe-89118a8cc033	5109b2b1896d4d5190b7ba83f2cfb16f	965	244577	MORAES E FERREIRA INCORP IMOB LT	4082400	602167/602166	2022-10-05 16:31:04	2022-10-10 23:59:59	Paid	4	Asset	7	ITENS REFERENTES AOS PEDIDOS ERP 602167/602166	2022-10-06T08:23:26.807	https://cielolink.com.br/3V9wo3V	110364956322AJ2I17JE	203014	049993	00	496045******0116	Visa	CreditCard	Leonardo Moraes	leonardo_mr@hotmail.com.br	Avenida Dr Eloy M. Chaves	Avenida Dr Eloy M. Chaves	Centro	Três Lagoas	MS	149	67981920014	34427549845	
+157	81d83f23-90ae-42f8-b2ad-445b402204ba	3f22e5d3261642febaa7ee881a8581ed	955	254921	JOAQUIM MARTINS DE SOUZA	110000	602238	2022-10-06 11:34:24	2022-10-10 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602238	2022-10-06T13:02:15.163	https://cielolink.com.br/3SJFtii	110364956322AJ30EPVE	201016	020588	00	490144******5697	Visa	CreditCard	Mariane Oliveira	marianeoliveira036@gmail.com	Rua Mineiros	Rua Mineiros	Vila Progresso	Jataí	GO	254	64992629797	07302933197	
+194	1660889c-e0e9-4ef2-8541-04fc63a27d3a	628f4643882045dd83a85ac56f8a20e8	962	251842	LAURA LACERDA FERREIRA SILVA	455720	602291/602287	2022-10-14 07:20:29	2022-10-17 23:59:59	Paid	1	Asset	2	ITENS REFERENTES AOS PEDIDOS ERP 602291/602287	2022-10-14T10:57:14.597	https://cielolink.com.br/3Tp9Hab	110364956322I1TALA0E	209002	082450	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+197	dda7ab83-ce7c-4cc4-9197-045588c8088c	461ea91b82ad4df5ab4415d2db71e935	964	254438	THIAGO MARQUES LIMA	351000	602669	2022-10-14 10:20:55	2022-10-17 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602669	2022-10-14T11:18:02.353	https://cielolink.com.br/3yCLMME	110364956322I1TB5K8E	207004	303422	00	485464******0315	Visa	CreditCard	romilda rosa	romilda2008@yahoo.com.br	Avenida Paulo Roberto Cunha Santos	Avenida Paulo Roberto Cunha Santos	Minas Gerais	Uberlândia	MG	1919	11986556990	95144200630	
+195	d4de9b12-cc7e-4ac5-8f74-c0fca8afda99	1cd5cd5332424234b1a0c35a6e300dfe	959	258441	DROGARIA JJ DE FRUTAL LTDA	332100	602673	2022-10-14 07:49:34	2022-10-17 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602673	2022-10-14T08:11:52.347	https://cielolink.com.br/3ezdF1l	110364956322I1T37IGE	205004	614889	00	650914******3131	Elo	CreditCard	drogaria ltda	jj.farmelhorfrutal@gmail.com	Rua Araxá	Rua Araxá	Ipê Amarelo	Frutal	MG	2190	34996632173	24156026000191	
+204	0070a12b-a207-4f9c-8d3e-eff1cebe201b	87d60a8adf8e44ac95cf84cd12ad03a8	961	253429	FERNANDO CARDOSO VIEIRA	201300	602686	2022-10-17 10:50:54	2022-10-20 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602686	2022-10-17T11:11:56.12	https://cielolink.com.br/3ENlQBJ	110364956322KREIT8HE	208008	843144	00	458919******1889	Visa	CreditCard	Pedro neves	pedroneves.com@gmail.com	 José Jorge filho	 José Jorge filho	Mão amiga 	Brasilândia	MS	877	67981479909	34780296862	
+205	7db7de61-c90b-4936-98f3-e423bc54befb	dc0fd8cbd53e4d24818961de1c208cc3	961	253429	FERNANDO CARDOSO VIEIRA	363485	602825/602688	2022-10-17 11:17:10	2022-10-20 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602825/602688	2022-10-17T11:24:01.05	https://cielolink.com.br/3EJ4nup	110364956322KREJICTE	205008	T65307	00	522590******3114	Master	CreditCard	Pedro neves	pedroneves.com@gmail.com	 José Jorge Filho 	 José Jorge Filho 	Mão amiga 	Brasilândia	MS	877	67981479909	34780296862	
+200	a2baea05-6898-41e1-93fb-f5bd1161157a	f42f4a76f194404fae3e9ac016d055cf	853	258510	GUIMARINO SOARES PEREIRA	750000	602808	2022-10-17 10:18:26	2022-10-20 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602808	2022-10-17T16:17:21.897	https://cielolink.com.br/3EOOeDI	110364956322KREVG5QE	209006	671953	00	651652******2252	Elo	CreditCard	Guimarino pereira	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67999515403	47528435104	
+199	04179962-03b6-45b0-8ea1-0bdf3ecc07a5	553f75f33e3e448cab20bc4f17455f70	853	258510	GUIMARINO SOARES PEREIRA	250000	602804	2022-10-17 10:17:03	2022-10-20 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 602804	2022-10-17T16:33:29.823	https://cielolink.com.br/3eJx0wK	110364956322KREVVJUE	206018	632793	00	651652******2252	Elo	CreditCard	Guimarino pereira	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67999515403	47528435104	
+143	23fa92d1-90e0-4be1-bbfd-73e8a75e5aae	d8baeb3b5ff342b4a218202779cf4cca	955	254921	JOAQUIM MARTINS DE SOUZA	192000	601929	2022-09-30 16:58:37	2022-10-03 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601929	2022-10-02T13:42:19.59	https://cielolink.com.br/3C0OHj2	1103649563226RLO0HHE	202008	058238	00	483150******9581	Visa	CreditCard	Simone Silva	geovanemaia@gmail.com	Rua Sebastião Vilela	Rua Sebastião Vilela	Santa Terezinha	Jataí	GO	151	64999957847	02413294180	
+146	978d6f46-846b-493e-b3d1-ece0e5a21223	d443c0b3e66844a0aab876f960996d0f	878	254781	MARCELO SANS DODSON	2211432	601978/601977	2022-10-03 14:19:33	2022-10-06 23:59:59	Paid	4	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 601978/601977	2022-10-03T21:07:29.327	https://cielolink.com.br/3CtpfnN	1103649563227PH9T23E	204010	006945	00	553665******7865	Master	CreditCard	marcelo dodson	marcelododson@gmail.com	rua palhoça	rua palhoça	residencial portal do sol	Ilha Solteira	SP	250	19999413024	98679333620	
+148	bdc425b6-0a6a-4144-bd69-cdc47cb3bf8e	ececbf9f36c040158610ae1b7386117c	964	237557	ARTE FORROS DIVISORIAS E REVESTI	1075580	601828	2022-09-30 16:35:19	2022-10-06 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 601828	2022-09-30T12:58:32.000	https://cielolink.com.br/3V17Mdy	1103649563224VVH2CIE	202006	432612	00	499818******4880	Visa	CreditCard	Clayton Silva	claytonavelinodasilva@gmail.com	Avenida Araguari	Avenida Araguari	Martins	Uberlândia	MG	377	34992150151	06247509650	
+158	187f4c82-9e2b-4e2b-b444-8919442bea61	cefa4a09a76d4c46a253d3afc7c1084b	955	254921	JOAQUIM MARTINS DE SOUZA	162000	602247	2022-10-06 14:10:26	2022-10-10 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602247	2022-10-06T15:29:22.78	https://cielolink.com.br/3CAgkRE	110364956322AJ38MKLE	200016	722343	00	485464******9490	Visa	CreditCard	Gislene sousa	candidosirlene60@gmail.com	Rua Italino Moura	Rua Italino Moura	Dom Abel	Jataí	GO	280	64999540666	90557727120	
+159	a16b5f6a-3691-4097-aad4-148bb4d4db2c	4131884eebd14f99aa8b628abcfa60be	955	224270	G S MADEIRAS LTDA ME	305400	602277	2022-10-06 15:40:36	2022-10-10 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602277	2022-10-06T16:10:45.943	https://cielolink.com.br/3Ek2kwJ	110364956322AJ3BDI3E	202016	746711	00	547408******2188	Master	CreditCard	Julliana Gomes	jullianagarcia_rd@hotmail.com	 Rua bahia 	 Rua bahia 	Centro 	Aparecida do Rio Doce	GO	213 	64992240805	03388960151	
+150	745180f5-5ea8-4069-a39f-ab4ab62dbf61	50a358ba649246169c74573798864361	853	258451	COMERCIAL COSTA LEITE EIRELI EPP	1143360	602063	2022-10-04 14:40:55	2022-10-07 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602063	2022-10-04T14:48:51.717	https://cielolink.com.br/3McNZnK	1103649563228NC521UE	200014	684966	00	455187******5516	Visa	CreditCard	Comercial Eireli	ronyosuna@hotmail.com	Comercial Costa Leite Eireli EPP	Comercial Costa Leite Eireli EPP	centro	Água Clara	MS	1088	67999234570	26727559000101	
+178	c807c605-881b-44ad-bd34-9765bcc1bc8a	9796c8e565904692897b21d7debf8f4a	955	258389	GABRIELA DIAS DE ALMEIDA	700000	602290/602284/602283	2022-10-10 07:15:39	2022-10-13 23:59:59	Paid	4	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 602290/602284/602283	2022-10-10T10:00:48.077	https://cielolink.com.br/3ECWmH8	110364956322EAFJC3ME	206002	142056	00	534696******5440	Master	CreditCard	alcimene campos	alcimenecarvalho@outlook.com	 Av Clarice machado Guimarães 	 Av Clarice machado Guimarães 	morada dos sonhos 	Caçu	GO	1272	64984795887	01156219116	
+183	b94002e4-feb3-4bb0-bd58-b8b5a15d9a7f	5cb646bc8cb34d1e8b17178281305fd3	962	257651	LUCIANO AFONSO QUEIROZ	210000	602398	2022-10-10 09:43:00	2022-10-13 23:59:59	Paid	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602398	2022-10-10T17:23:45.507	https://cielolink.com.br/3ekSOP6	110364956322EAGDEPKE	207002	772435	00	650724******2686	Elo	CreditCard	liuvane souza	liuvane@hotmail.com	 rua Augusto correia da Costa Jr 	 rua Augusto correia da Costa Jr 	centro 	Paranaíba	MS	2811	67981286575	91604761172	
+184	c41ba979-cf9a-429a-9a79-3d69a5dbe10b	dbe3ca1992774b04b165b2af336be87e	958	253511	JORGE DE JESUS FERREIRA 01292769	635000	602427	2022-10-10 13:41:06	2022-10-13 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602427	2022-10-11T08:55:28.993	https://cielolink.com.br/3VhmCNu	110364956322F8B7789E	206004	547647	00	498442******5034	Visa	CreditCard	José Lucena	andersonsimplicio805@gmail.com	 rua Nelson Pereira Benfica 	 rua Nelson Pereira Benfica 	Jardim do bosque 	Palestina	SP	2611	17996697123	43552567828	
+188	ebcd88c9-9be3-464a-95b3-3867d8999350	f4fad90ee7d34241955b1b0ef3548511	962	258492	FABIO RIBEIRO DE FREITAS	311000	602585/602584	2022-10-13 10:11:46	2022-10-17 23:59:59	Paid	1	Asset	1	ITENS REFERENTES AOS PEDIDOS ERP 602585/602584	2022-10-13T10:20:46.297	https://cielolink.com.br/3TdpetC	110364956322H41IOBHE	208004	024668	00	535081******2316	Master	CreditCard	fabio freitas	fabioribeiro8142@gmail.com	 rua rui barbosa 	 rua rui barbosa 	centro	Paranaíba	MS	1225	67981426858	48126551100	
+187	ba1690c6-ce6d-4b8d-91ff-ab317348b464	36c05ed4a4d54030815c715ec5b92001	964	258489	GLAUCINEY LEONEL QUEIROZ	535020	602559/602558	2022-10-13 07:43:42	2022-10-17 23:59:59	Paid	4	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602559/602558	2022-10-13T10:23:18.137	https://cielolink.com.br/3SXLM1Z	110364956322H41JCHDE	206006	087227	00	515601******3844	Master	CreditCard	Glauciney Queiroz	paulasantana_10@hotmail.com	 Rua 24	 Rua 24	Maria aparecida 	Itapagipe	MG	774	34999171233	74340212687	
+189	233d7b3d-ba1c-4c02-986d-61581dcffc9c	0b9efcff00454764b2de8d9de4e444c9	965	248207	WELLINGTON DE OLIVEIRA MENEGUIM	200000	602605/602604	2022-10-13 13:16:31	2022-10-17 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 602605/602604	2022-10-13T13:27:53.043	https://cielolink.com.br/3eumdGE	110364956322H41S2GQE	208006	002757	00	459080******6770	Visa	CreditCard	Wellington meneguim	raquel_meneguim@hotmail.com	Rua Paranaíba	Rua Paranaíba	Jardim Angélica	Três Lagoas	MS	3525	67991207968	69773351149	
+191	24cd7b08-c497-49a8-badd-7ad783321ab4		955	254921	JOAQUIM MARTINS DE SOUZA	84000	602634	2022-10-13 15:09:33	2022-10-17 23:59:59		0	Asset	6	ITEM REFERENTE AO PEDIDO ERP 602634		https://cielolink.com.br/3Cq5Ra6																		
+192	26f0775c-f031-46cb-a79a-07415245d490	b93bccb31e844bfe9e5183140cf54072	962	258495	SEMI VILELA DA SILVA	438300	602648	2022-10-13 16:10:11	2022-10-17 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 602648	2022-10-13T16:42:55.383	https://cielolink.com.br/3S0fh1U	110364956322H425EJ7E	206008	515661	00	516292******1131	Master	CreditCard	Samir Vilela	samirpba@hotmail.com	Av Sen Felinto Muller	Av Sen Felinto Muller	Santo Antonio	Paranaíba	MS	360	67982101216	05919826177	
+193	0b766cf6-6185-4f82-b5d5-412dc59e483b		955	253752	JULIO SILVA NETO	273000	602660	2022-10-13 16:47:02	2022-10-17 23:59:59		0	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602660		https://cielolink.com.br/3EAB11f																		
+256	dea532e0-9282-43d8-b6e7-90931b5cd663	caefd50ef0824a1792cb0ec43482bb65	964	254438	THIAGO MARQUES LIMA	754000	604154	2022-11-04 15:31:01	2022-11-07 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 604154	2022-11-05T07:53:52.867	https://cielolink.com.br/3hdtUlv	1103649563236IKTUH0E	225004	635118	00	464127******1793	Visa	CreditCard	André David	andre.u.david@hotmail.com	 Rua 4 	 Rua 4 	Laranjeiras 	Colômbia	SP	69	16997792562	25864002836	
+207	a4ae1919-fbae-4676-aba3-df8240623ba4	f3403904c1594bb4a55dcb9515c5a71b	961	238271	WALDIR DA SILVA GOMES	200000	602814	2022-10-17 15:03:41	2022-10-20 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602814	2022-10-17T16:08:40.867	https://cielolink.com.br/3g7MV8t	110364956322KREVMVGE	205010	830625	00	474525******4232	Visa	CreditCard	Waldir Gomes	priscilamrgomes@gmail.com	 Rua São Francisco de Assis 	 Rua São Francisco de Assis 	São Francisco 	Bataguassu	MS	709	54997044878	93517130168	
+257	c3b835d3-5be4-4186-a227-6d6ddfebf4f3	d76724b73f1a4817b82d810fb4fac78d	965	258585	LUIS FERNANDO SACCHI RIBEIRO	4139986	604280	2022-11-07 17:01:57	2022-11-10 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 604280	2022-11-08T12:23:19.307	https://cielolink.com.br/3UcLzZk	1103649563239C6US83E	222004	240122	00	498408******4267	Visa	CreditCard	Luís Ribeiro	bacalazin@gmail.com	Rua Manoel José de Lima	Rua Manoel José de Lima	Jardim das Paineiras	Três Lagoas	MS	386	41996109370	36962304803	
+264	be913c4f-f054-4ddd-b981-cdd7da68b1a4	ba34f9bfacfb43dc82e99cd48a1748bc	959	255190	TONISGLEY APARECIDO ANDRADE FERR	65200	604467	2022-11-10 09:42:19	2022-11-14 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 604467	2022-11-10T09:45:29.21	https://cielolink.com.br/3A2Ghrw	110364956323B7TQBJ6E	226004	694957	00	516292******4143	Master	CreditCard	Maira Rodrigues	mairafrod@hotmail.com	Rua Belo Horizonte	Rua Belo Horizonte	Santos Dumont	Frutal	MG	1555	34999642583	11517756650	
+265	1405d9ab-f3af-45bb-b7a7-74a3a39b3f11	deba5b5765ab4a9ebe298db37f65ae36	996	258591	JOAO BATISTA DE SOUZA	560000	604506	2022-11-10 09:46:38	2022-11-14 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 604506	2022-11-10T09:52:04.907	https://cielolink.com.br/3NRQhcK	110364956323B7TRJ65E	225006	800939	00	650907******5001	Elo	CreditCard	Heitor Leonel	hlmateriaisparaconstrucao@hotmail.com	 Rua 28	 Rua 28	Maria aparecida de assis	Itapagipe	MG	902	34984438271	45357766000166	
+216	47cb9bfa-40d9-43e6-9c7a-02c05c074ea1	de16d8f345f249f9a63d6528b2b0582a	962	258282	JOSE FLAVIO DA FONSECA RODRIGUES	119700	603134	2022-10-20 13:30:17	2022-10-24 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 603134	2022-10-20T13:38:21.253	https://cielolink.com.br/3eTMUop	110364956322NL0M5QJE	210002	378238	00	444458******6896	Visa	CreditCard	José Rodrigues	carieprofunda@icloud.com.br	 Generoso Ponce 	 Generoso Ponce 	Centro 	Paranaíba	MS	1873	67992456709	53067010604	
+210	5b75b21f-9028-4d4b-8288-82d0c58054be	c90a87e4ccb94958a73539ffd5feda1f	878	249162	NATAN CARVALHO RIBEIRO	889600	602951/602950	2022-10-18 11:23:21	2022-10-21 23:59:59	Paid	4	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602951/602950	2022-10-18T11:44:18.577	https://cielolink.com.br/3yOu6Oq	110364956322LP9RUM1E	206020	831935	00	651659******8673	Elo	CreditCard	Natan ribeiro	natanribeiro@gmail.com	 Rodovia br 158 km 180	 Rodovia br 158 km 180	Rural 	Aparecida do Taboado	MS	180	61984590574	28088158915	
+203	8fafa36c-6b96-463f-b38c-24dc74a9b63d	5ffcc593c15a44c2855e9865ce5a92a7	965	255326	ALESSANDRO DA SILVA CARVALHO 378	240920	602820/602819/602816/602813	2022-10-17 10:47:26	2022-10-20 23:59:59	Paid	4	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602820/602819/602816/602813	2022-10-18T12:49:27.727	https://cielolink.com.br/3CEiePZ	110364956322LP9VIKFE	209010	492165	00	515590******3257	Master	CreditCard	antonio paula	nathanhenrique.barboza@gmail.com	Rua Coronel Augusto Corrêa da Costa	Rua Coronel Augusto Corrêa da Costa	Centro	Três Lagoas	MS	1057	67991977474	44499094100	
+211	b76b2b78-9778-4b88-8f48-3efe1100988e	7a3fb87e37ac4e258a44b925a035ebf5	878	249162	NATAN CARVALHO RIBEIRO	496000	602969/602880	2022-10-18 13:34:15	2022-10-21 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 602969/602880	2022-10-18T14:13:44.27	https://cielolink.com.br/3Tb6awH	110364956322LPA2TR7E	205018	634211	00	453211******2203	Visa	CreditCard	Daiane Lisboa	dlisboa9@icloud.com	 Estancia natan Ribeiro 	 Estancia natan Ribeiro 	Rio grandinho 	Aparecida do Taboado	MS	Sn 	17997437723	33885658801	
+212	a712ef42-283a-41d2-b00d-101d6d76e5c7	12a5832ba89d4b78af689dfe948963f0	962	9290	LEONEL PERES DE JESUS	360200	602974	2022-10-18 14:18:09	2022-10-21 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602974	2022-10-18T14:54:44.857	https://cielolink.com.br/3CHQ1YC	110364956322LPA3RR0E	208012	T89236	00	512267******6116	Master	CreditCard	celio silva	luismiguel022_pba@hotmail.com	 rua dr rocha dias	 rua dr rocha dias	vila santo Antônio 	Paranaíba	MS	380	67981489923	59610670172	
+213	a2cc6cb0-a517-404a-a8be-53c08d11be39	57694d18582e4f78b34c5087813d04e3	853	258510	GUIMARINO SOARES PEREIRA	122800	603020	2022-10-19 09:20:02	2022-10-24 23:59:59	Paid	4	Asset	3	ITEM REFERENTE AO PEDIDO ERP 603020	2022-10-19T10:14:36.377	https://cielolink.com.br/3gjfnVg	110364956322MN52GBNE	206022	992669	00	518814******4350	Master	CreditCard	Marco Ferreira	marcogustavo@gmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67999618786	94711267115	
+215	fcd65e52-dc1c-4cec-a723-0546d0d05290	8f296bdfdf204f2d9a654495a7c5bbf6	959	256287	ENDRIGO LUCAS GAMBARATO BERTIN	450000	603126/603125	2022-10-20 13:05:35	2022-10-24 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 603126/603125	2022-10-20T15:16:58.523	https://cielolink.com.br/3CQSOi2	110364956322NL0RIILE	211002	756466	00	498442******0011	Visa	CreditCard	CID COSTA	cidmarcosta1@gmail.com	 Rua José Alves Nunes	 Rua José Alves Nunes	Dourados 1	Pirajuba	MG	35	34999676940	01488512663	
+209	9ba30802-4dbd-4904-9ecf-f78cb082b315	1b862069817845f79596af6673d4b1d6	853	258510	GUIMARINO SOARES PEREIRA	229670	602809	2022-10-18 07:28:53	2022-10-21 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 602809	2022-10-19T08:27:59.637	https://cielolink.com.br/3Te6LxC	110364956322MN4U6RJE	208014	675694	00	506731******8201	Elo	CreditCard	Guimarino pereira	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67999515403	47528435104	
+217	528dd8a6-d4d7-42f5-8275-bbe90671117f	ca73f724125245c8b26a3eee286ac6eb	853	258525	SEMI FAUSTINO ALVES	1006260	603149	2022-10-20 15:25:09	2022-10-24 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 603149	2022-10-21T09:28:16.583	https://cielolink.com.br/3yWFtDM	110364956322OIRVJANE	212002	039007	00	552236******1957	Master	CreditCard	Flavio Machado	flaviormachado@yahoo.com.br	 Rua Amazonas 	 Rua Amazonas 	Parque industrial 2	Costa Rica	MS	770 	67996554386	41835387004	
+221	d0ac5f98-f255-4b3d-944b-05e070ef0e8e	d692a279d5f041f0878628b3085e5648	853	245180	DIELGUE EDER CAMILO	99150	603199	2022-10-21 15:14:03	2022-10-24 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 603199	2022-10-21T15:20:46.943	https://cielolink.com.br/3ShdB48	110364956322OISDNMME	213002	982102	00	540593******1533	Master	CreditCard	DIELGUE CAMILO	d2_camilo@hotmail.com	 Rua David do livramento Teixeira 	 Rua David do livramento Teixeira 	Jardim das palmeiras 	Água Clara	MS	297	67991353471	29960440885	
+263	0b0d292d-3e97-4589-86b7-1330d65954cb	3d11f4e429324f408f8705d07f044ef9	962	251842	LAURA LACERDA FERREIRA SILVA	390000	603973	2022-11-10 08:55:59	2022-11-14 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 603973	2022-11-10T11:58:18.967	https://cielolink.com.br/3tk0Rjc	110364956323B7U29OSE	223008	875600	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+220	12890380-92c7-4677-b72f-28d8c2da7258	a3cb9622a7f04eaa915f62006e5faf29	965	244577	MORAES E FERREIRA INCORP IMOB LT	4996560	603220	2022-10-21 15:13:51	2022-10-24 23:59:59	Paid	4	Asset	7	ITEM REFERENTE AO PEDIDO ERP 603220	2022-10-24T11:18:06.48	https://cielolink.com.br/3DilUs5	110364956322RCD6KGOE	212004	749452	00	547408******7246	Master	CreditCard	LEONARDO MORAES	leonardo_mr@hotmail.com.br	Avenida Dr Eloy M. Chaves	Avenida Dr Eloy M. Chaves	Centro	Três Lagoas	MS	149	67981920014	34427549845	
+284		899b67af883645e481d5f862d89eed60	965	247159	LUANA VERUSKA GONCALVES OLIVEIRA	119100	604541/604540	2022-11-10 15:05:00	2022-11-14 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 604541/604540	2022-11-10T16:17:20.000	https://cielolink.com.br/3WTwIok	110364956323B7UETBRE	224008	864515	00	550209******4136	Master	CreditCard	Fabiano Pereira	sagoomes5@gmail.com	Rua Chile	Rua Chile	Alto da Boa Vista	Três Lagoas	MS	2587	67999817030	92657877168	\N
+226	05b7c0ab-d1d5-4c2b-9319-e1f6e01cb583	bc006d2604134f1ea4cd2dc7db565117	964	258538	JESUS MACEDO DE LIMA	470000	603266	2022-10-24 08:55:04	2022-10-27 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 603266	2022-10-24T11:50:39.903	https://cielolink.com.br/3Swh671	110364956322RCD91MNE	214002	039918	00	415275******4264	Visa	CreditCard	Aldivanir Lima	macedoebarbosa@hotmail.com	Rua Joaquim Brasileiro Machado	Rua Joaquim Brasileiro Machado	Nova Esperança	Itarumã	GO	29A	64984465352	79045049104	
+224	ed30c44c-9bd4-4839-9e04-6a465eaa29ad	7b6470261e1e4263b40a21a9abb171f1	962	258531	JOCINEI CANDIDO DA SILVA	275300	603213/603212	2022-10-21 16:44:00	2022-10-24 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 603213/603212	2022-10-24T12:52:11.843	https://cielolink.com.br/3MTrLHE	110364956322RCDAP28E	214004	119983	00	518482******7411	Master	CreditCard	Jocinei silva	moraisgiovana714@gmail.com	 Av três lagoas 	 Av três lagoas 	Centro 	Paranaíba	MS	2260	67981512550	84084871168	
+227	5daf2383-4a79-40b4-b571-0e6efb8e17d9	57b4201ac6414c4cb65f78d7dcf67f35	962	258541	CLEYTON DUTRA DE PAULA	2593000	603349/603344	2022-10-24 16:19:38	2022-10-27 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 603349/603344	2022-10-24T16:25:10.75	https://cielolink.com.br/3f0pZrD	110364956322RCDIQ7EE	215002	650863	00	651652******2208	Elo	CreditCard	Cleyton Paula	cleytondutradepaula@gmail.com	 rua Goiás 	 rua Goiás 	centro	Inocência	MS	703	67981118031	02472950195	
+228	a7845f20-7e0e-4d46-bb12-19cc70d76c10	7b6ef3517eb84d43a5aa84bc1dd2af3e	961	258402	MARIA DE LOURDES FERREIRA DOS SA	134300	603306/603305	2022-10-25 07:41:50	2022-10-28 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 603306/603305	2022-10-25T09:57:01.483	https://cielolink.com.br/3gtogeK	110364956322SA8RJCCE	215004	329721	00	498453******5877	Visa	CreditCard	MARIA AGUIAR	mferreiradossantosaguiar@gmail.com	 Rua Alfa	 Rua Alfa	Jardim Progresso 	Três Lagoas	MS	3280	67992481274	59546875104	
+229	ee5743a4-b837-48b3-8f3a-f112d7e1297c	5e5e98e90f544885a3d1cfe239505018	853	258545	TALISSON GONÇALVES DA SILVA	358840	603399/603394	2022-10-25 10:12:22	2022-10-28 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 603399/603394	2022-10-25T10:34:24.113	https://cielolink.com.br/3SugRJr	110364956322SA8UD51E	213004	466301	00	498453******4088	Visa	CreditCard	Talisson Silva	talisson.silva@sharktratores.com.br	 Rua 10a 	 Rua 10a 	Centro 	Chapadão do Sul	MS	10	67998660913	05283154122	
+231	bcd41ee1-d744-46c6-ad3b-56dda72265c0	1e5c42f9d14b4dc0a5755c6b717c0bc9	959	253358	FABIO SANTOS SANTANA 09820802636	160000	603398	2022-10-25 11:25:18	2022-10-28 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 603398	2022-10-25T11:40:58.493	https://cielolink.com.br/3f1p5eu	110364956322SA90E7HE	214006	729437	00	506741******0500	Elo	CreditCard	Arilson Cutrim	arilsoncamaracutrim@gmail.com	Rua Eleuza Bandeira da Silva	Rua Eleuza Bandeira da Silva	Ipê Amarelo	Frutal	MG	235	34984301921	05603884380	
+232	c3ebaaaa-f2a3-429a-bcff-c685657ba174	f8a353c52faf48999c4a7f19c1d83b3b	853	258546	NILSON FRANKLIN DE SOUZA FILHO	270000	603444	2022-10-25 16:00:09	2022-10-28 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 603444	2022-10-25T19:46:12.98	https://cielolink.com.br/3TWxm2g	110364956322SA9LQ96E	215006	174268	00	459384******9711	Visa	CreditCard	Nilson Filho	nilson_abgc@hotmail.com	Leoncio Ayres de Freitas 	Leoncio Ayres de Freitas 	Jardim Novo Horizonte 	Água Clara	MS	1513	67991164041	01872868177	
+234	a73ae29d-b9fc-4a42-99e7-b90ad1b2da1b	eb2f7300c319444a96030c64ae8444fc	962	258552	PAULO BARBOSA VALADAO	718500	603566	2022-10-26 15:36:28	2022-10-31 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 603566	2022-10-26T20:44:27.63	https://cielolink.com.br/3ziKp6a	110364956322T84SD1NE	215008	642542	00	453211******9949	Visa	CreditCard	Paulo Barbosa	valadaopaulo30@gmail.com	 Sítio três coqueiros 	 Sítio três coqueiros 	Zona  rural 	Inocência	MS	Xxxxx	67998547446	00885908104	
+236	0d310b68-7710-4479-badb-5118cc58fa1b	2d362a9ec39a423c81b05e80aedd2981	965	258553	EDENILSON LUZ MACEDO	192600	603629/603628	2022-10-27 11:17:35	2022-10-31 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 603629/603628	2022-10-27T11:53:55.24	https://cielolink.com.br/3DCHqYG	110364956322U5VFC09E	216002	289430	00	650487******7140	Elo	CreditCard	Edenilson Macedo	mary_okabayashi@hotmail.com	Rua Manoel Mendes	Rua Manoel Mendes	Jardim Nova Ipanema	Três Lagoas	MS	611	67981884377	03062764104	
+237	c48fc874-ad83-4157-8db4-84d12ccbb3c5	c2efc1f86420410bb478d9c26a0a6324	962	251842	LAURA LACERDA FERREIRA SILVA	128000	603544	2022-10-27 13:21:14	2022-10-31 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 603544	2022-10-27T14:28:25.583	https://cielolink.com.br/3sCwBQe	110364956322U5VL5KCE	217002	382288	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+238	cf64be00-3c82-43fc-9af7-5427be984f19	4b088bf6fbeb4b0ab36e5ce7bbb159c8	878	258466	PAULO ROBERTO JOAQUIM DOS REIS	1453178	603634	2022-10-28 08:33:45	2022-10-31 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 603634	2022-10-28T10:12:02.507	https://cielolink.com.br/3SQ1afL	110364956322V3QENISE	219002	251020	00	516159******0693	Master	CreditCard	PAULO FILHOS	sara.castro@cma.agr.br	FAZENDA CORREGO DAS FLORES 4 KM BR 158	FAZENDA CORREGO DAS FLORES 4 KM BR 158	ZONA RURAL	Aparecida do Taboado	MS	S/N	1741010163	13510720806	
+230	45909377-ee50-4c62-bdc5-d024c965f30f	47844e219b804ea082dceaa3dbabc196	853	251534	VISION ART COMUNICACAO E IMPRESS	82000	603121	2022-10-25 10:16:15	2022-10-28 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 603121	2022-10-28T15:49:32.193	https://cielolink.com.br/3ze0GcA	110364956322V3QSU2FE	219004	693002	00	650914******5576	Elo	CreditCard	Joaquim Oliveira	visionartcomunicacao@gmail.com	 Av jota 	 Av jota 	Jd eldorado 	Costa Rica	MS	162	67999488059	46462589191	
+233	df59f811-b154-4856-8a3c-5a62fde02bdd	70f37faafe64477f94bdb54ed7054097	965	258141	MARCELO GOMES DE GOES \n	779626	603534/603533	2022-10-26 11:34:34	2022-10-31 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 603534/603533	2022-10-28T16:45:39.933	https://cielolink.com.br/3TP2TTI	110364956322V3QU220E	221002	000793	00	651653******0565	Elo	CreditCard	Marcelo Goes	goes1982@hotmail.com	Rua 02	Rua 02	Parque Residencial Quinta da Lagoa	Três Lagoas	MS	100	67992191078	22705707824	
+241	6d0ebec4-fb73-4906-962b-eafe15ece08f	53cffc1f323f41dea3f9fca39a63c251	965	254758	EVAIR APARECIDA PINHEIRO	656645	603753	2022-10-28 16:17:38	2022-10-31 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 603753	2022-10-31T09:35:20.943	https://cielolink.com.br/3fgRu0d	1103649563231TCB2RIE	221004	651741	00	493101******6955	Visa	CreditCard	DARCI COSTA	fabianomatrix475@hotmail.com	Rua Rui José da Costa	Rua Rui José da Costa	Jardim Paranapunga	Três Lagoas	MS	1351	67992242302	11074248104	
+239	699f01b9-0951-4548-81df-70fb92d76182	847db8e7cc494b08ab1095b4194c65c4	964	257553	FRONTINO FERREIRA MARTINS	684400	603719/603718	2022-10-28 14:24:56	2022-10-31 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 603719/603718	2022-10-28T17:25:07.117	https://cielolink.com.br/3Ft4OcC	110364956322V3R1JHGE	219006	043497	00	512707******8124	Master	CreditCard	Frontino Martins	frontinofmartins@outlook.com	Avenida 3	Avenida 3	Centro	Itapagipe	MG	105	34999741382	04997873667	
+240	7fdce208-33c8-4591-b813-a992fbc6d441	5164e24572884ffc94441fab9a7ec451	959	258383	ALCI FERREIRA DA SILVA	544879	603699	2022-10-28 15:24:33	2022-10-31 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 603699	2022-10-31T12:34:39.25	https://cielolink.com.br/3DHoPL5	1103649563231TCILHBE	221006	087205	00	530994******0897	Master	CreditCard	EJ LTDA	eng.emanoeljunior@hotmail.com	 Av. 17	 Av. 17	CENTRO	Itapagipe	MG	755	34991476467	48384951000138	
+242	2ea72810-5263-43d5-a18c-6be3d1aae005	fe369fbb41594ffd89c572042f9c7e43	964	183236	AZARIAS EDUARDO FRANCO MENDES	334160	603866/603865	2022-10-31 15:22:22	2022-11-03 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 603866/603865	2022-10-31T21:07:52.47	https://cielolink.com.br/3Wi2HhO	1103649563232100D9SC	028001	855350	00	498408******6104	Visa	CreditCard	Fernando Mendes	fernandovmendes@hotmail.com	 João Edson de Melo 	 João Edson de Melo 	Colina Park 	Prata	MG	100	34999975886	05367926665	
+311	d0141bba-4f03-406a-97f3-3300820db6c2	648a5b2827a044f4ae97910958ec257c	878	258466	PAULO ROBERTO JOAQUIM DOS REIS	1320590	604596/604593	2022-11-11 10:52:17	2022-11-15 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 604596/604593	2022-11-11T11:55:47.3	https://cielolink.com.br/3hxorX1	110364956323C5Q14IIE	223010	039352	00	516159******9717	Master	CreditCard	Suzana Sabion	suzana.sabion@cma.agr.br	FAZENDA CORREGO DAS FLORES	FAZENDA CORREGO DAS FLORES	ZONA RURAL	Aparecida do Taboado	MS	S/N	1741010163	41007062860	
+244	1b9e12a8-f66d-455b-b744-955e8af602f3	a41cbf332b2c4ba1ac2dca5848a13da6	959	258441	DROGARIA JJ DE FRUTAL LTDA	94000	603929	2022-11-01 13:40:17	2022-11-04 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 603929	2022-11-01T13:57:35.353	https://cielolink.com.br/3Wx77l8	1103649563232R83ARHE	222002	127481	00	547408******8402	Master	CreditCard	júnior silva	jabsilva@yahoo.com.br	Rua Raul Soares	Rua Raul Soares	Jardim do Bosque	Frutal	MG	1670	34996632173	04505275655	
+245	4af87a26-f58b-4479-8acd-65e96b410a35		955	254921	JOAQUIM MARTINS DE SOUZA	130000	598516	2022-11-01 14:10:12	2022-11-04 23:59:59		0	Asset	4	ITEM REFERENTE AO PEDIDO ERP 598516		https://cielolink.com.br/3SW9taa																		
+252	ff06a738-7067-4f52-a243-f3af7b133523	4d3e369a8f2b41108521b879a2fc764c	964	254347	FORROARTE COMERCIO DE FORROS E B	6350400	603695	2022-11-03 13:21:26	2022-11-07 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 603695	2022-11-04T08:21:38.003	https://cielolink.com.br/3FIp76a	1103649563235KPIRPAE	225002	613527	00	374769*****5009	Amex	CreditCard	Gustavo Sampaio	aluminioseartes@hotmail.com	Rua Dom Vital	Rua Dom Vital	Anchieta	Belo Horizonte	MG	217	31996377863	11506707629	
+253	23e2d1aa-162e-4544-abaa-f7647f2165bf	1ae31753dd654b56b0ccdafbc839afe0	878	221622	FERNANDO MARTINS BENTO	427500	604005/604004	2022-11-03 13:48:49	2022-11-07 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 604005/604004	2022-11-03T19:08:04.96	https://cielolink.com.br/3NzHhZn	1103649563234MV524IE	224002	414806	00	498453******0180	Visa	CreditCard	João Mignoli	jmignoli@hotmail.com	 Rua Manoel Nunes Cardoso 	 Rua Manoel Nunes Cardoso 	Setor Tauam 	Aparecida do Taboado	MS	1570	66984005634	69578109172	
+322	ebeb5b39-8cca-4aaf-93cc-bfd6e8fbdc57	98bf14ca18724c569fd89517d3481680	996	258383	ALCI FERREIRA DA SILVA	283002	604632	2022-11-11 14:26:54	2022-11-14 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 604632	2022-11-11T14:36:22.613	https://cielolink.com.br/3UQ4lWw	110364956323C5Q9GTKE	225008	045264	00	530994******0897	Master	CreditCard	ENG JUNIOR	eng.emanoeljunior@hotmail.com	 Av. 17 	 Av. 17 	CENTRO	Itapagipe	MG	755	34991476467	48384951000138	
+321	61eb8b97-fead-4def-be9e-1af3e63ccf17	38ef6b6c0e794a938c957dfef0b280cc	965	227292	ANDERSON DA SILVA FERREIRA	100000	604637	2022-11-11 13:52:27	2022-11-14 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 604637	2022-11-11T17:05:45.51	https://cielolink.com.br/3A8rThi	110364956323C5QH3PFE	225010	083749	00	535081******6964	Master	CreditCard	Rodrigo Isper	isper16@hotmail.com	Avenida Coronel José Soares Marcondes	Avenida Coronel José Soares Marcondes	Vila Maristela	Presidente Prudente	SP	504	18997011999	06990640820	
+319	56fbca64-5c1e-4f38-bfa3-5ee5e590cd91	4ca862cca5e940fab8863bf3fea105d4	955	255036	GILMAR NUNES DA SILVA	1800000	604370/604369/604368	2022-11-11 13:43:34	2022-11-14 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 604370/604369/604368	2022-11-11T22:17:28.083	https://cielolink.com.br/3A7ScE9	110364956323C5QR74OE	226008	150308	00	498407******1640	Visa	CreditCard	Donizeth Guimarães	donizeth@gmail.com	Rua Jose Manoel de Castro	Rua Jose Manoel de Castro	Centro	Caçu	GO	647	64984518333	70663106168	
+259	88679182-ac5d-456a-be47-f4847923cb9e	ea5d16b15aae44f3a808939ac6d12bce	965	244577	MORAES E FERREIRA INCORP IMOB LT	2771067	604322/604320	2022-11-08 10:26:21	2022-11-11 23:59:59	Paid	1	Asset	7	ITENS REFERENTES AOS PEDIDOS ERP 604322/604320	2022-11-14T16:56:41.043	https://cielolink.com.br/3WH3wkq	110364956323EVBT09LE	222018	295652	00	650921******6411	Elo	CreditCard	Leonardo Moraes	mfcon@outlook.com.br	Avenida Dr Eloy M. Chaves	Avenida Dr Eloy M. Chaves	Centro	Três Lagoas	MS	149	67981920014	34427549845	
+320	0c06b33d-9c37-4b19-a64f-5fd8d8c91926	8945844d3c3f4d7eb7ec60b690c9ff32	955	255036	GILMAR NUNES DA SILVA	905140	604370/604369/604368	2022-11-11 13:43:35	2022-11-14 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 604370/604369/604368	2022-11-14T09:28:01.29	https://cielolink.com.br/3EyMxKh	110364956323EVB45R0E	224010	217843	00	512707******7305	Master	CreditCard	DONIZETH TA	donizeth@gmail.com	Rua Jose Manoel de Castro	Rua Jose Manoel de Castro	Centro	Itajá	GO	647	64984518333	70663106168	
+312	56bdecfe-cea1-4359-805b-e1ac64807051	1ac689f927924c288a28f63a4aff103a	962	257651	LUCIANO AFONSO QUEIROZ	480000	604623	2022-11-11 11:13:14	2022-11-15 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 604623	2022-11-14T11:29:19.123	https://cielolink.com.br/3fXALiR	110364956323EVBA21EE	225014	291371	00	558120******7627	Master	CreditCard	Rony Osaki	serralheriaosaki@hotmail.com	 Heliodoro Rodrigues 	 Heliodoro Rodrigues 	Centro	Paranaíba	MS	415	67981161913	66376092187	
+327	09acae85-b1c8-44fc-8ea0-76e151b0c760	ad81b68ed89a41b08d72226169424940	965	258425	JOSE CICERO VIEIRA DA SILVA	752970	605028/605025/605024/605022/605021	2022-11-18 11:28:22	2022-11-21 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 605028/605025/605024/605022/605021	2022-11-18T13:05:57.82	https://cielolink.com.br/3AqKXri	110364956323IMOH2GLE	223018	655598	00	453211******8103	Visa	CreditCard	Ricardo Gonzaga	ricardogonzaga2015@hotmail.com	Rua das Marias	Rua das Marias	Parque São Carlos	Três Lagoas	MS	69	67992215922	92762662168	
+334		a74bad8bdd8c4ef0ac8de4d9f841f526	965	258594	EMPRESA JORNALISTICA E EDITORA	500000	604609	2022-11-11 11:11:00	2022-11-14 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 604609	2022-11-11T14:50:06.00	https://cielolink.com.br/3Gh6s1c	110364956323C5QA82PE	226006	019534	00	496045******0215	Visa	CreditCard	Wesley Mendonça	opec@agitta.com.br	Avenida Advogado Rosário Congro	Avenida Advogado Rosário Congro	Agitta Comunic - Jardim Angélica	Três Lagoas	MS	2910	6735245030	66262623949	
+342	cb6e4356-0884-4543-acf7-b67c29e9acce	2609782929db424aa92cce6cac47ffb7	878	251474	TIAGO MOREIRA RODRIGUES	270231	605112/605110	2022-11-21 08:24:30	2022-11-24 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 605112/605110	2022-11-21T08:34:11.083	https://cielolink.com.br/3tP1ilG	110364956323LG9AADIE	223020	T23941	00	512267******7114	Master	CreditCard	Ricardo Silva	ricardoguimaraes031@gmail.com	 avenida Presidente Vargas 	 avenida Presidente Vargas 	centro	Aparecida do Taboado	MS	3388	67981751265	05120407102	
+343	e60cb0a1-5f0c-4139-946f-7e184045eb77	e007399140044b6d955719716bca7511	962	258282	JOSE FLAVIO DA FONSECA RODRIGU	130500	605122	2022-11-21 08:56:51	2022-11-24 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605122	2022-11-21T09:09:06.657	https://cielolink.com.br/3VdIDvz	110364956323LG9CNG6E	222024	477466	00	444458******6896	Visa	CreditCard	José Rodrigues	carieprofunda@icloud.com	 Generoso Ponce 	 Generoso Ponce 	Centro 	Paranaíba	MS	2873	67992456709	53067010604	
+345	ee81abd3-899c-4058-bcbe-fe719414c75f	11757f4be0674085acadfe430f8f5c35	964	183236	AZARIAS EDUARDO FRANCO MENDES	489720	605174	2022-11-21 12:59:50	2022-11-24 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 605174	2022-11-21T18:58:00.07	https://cielolink.com.br/3TTtBu6	110364956323LGA9B42E	225024	862228	00	498408******6104	Visa	CreditCard	Fernando Mendes	fernandovmendes@hotmail.com	 rua João Edson de Melo 	 rua João Edson de Melo 	colina Park 	Prata	MG	100	34999975886	05367926665	
+348	20e07c30-4c2c-4dc5-a962-3b4216d20175	005a14b3db1f4348a74df1062dd5736e	955	224270	G S MADEIRAS LTDA ME	190200	605198	2022-11-21 14:35:16	2022-11-24 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605198	2022-11-22T07:04:00.337	https://cielolink.com.br/3EQEoRm	110364956323ME4O3ETE	226030	375713	00	547408******5621	Master	CreditCard	Julliana Gomes	jullianagarcia_rd@hotmail.com	 Rua bahia 	 Rua bahia 	Centro 	Aparecida do Rio Doce	GO	213 	64992240805	03388960151	
+347	4fbb812d-adba-44a4-9c90-fa424c5f336e	3da415f4b4a6445caceff0732bf948fa	955	240391	GISELE MARTINS DOS SANTOS	147600	605186	2022-11-21 13:52:11	2022-11-24 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605186	2022-11-21T14:08:55.707	https://cielolink.com.br/3Op7cU8	110364956323LG9QTOKE	226026	491118	00	650907******8445	Elo	CreditCard	Gisele Santos	giselemartinsmar@hotmail.com	Avenida Manoel Afonso Cancela	Avenida Manoel Afonso Cancela	Setor Norte Industrial	Ituiutaba	MG	471	34999667040	18555168000129	
+344	b08999dd-2e8c-4846-a5c3-b1685e869f2e	f967065a3a4640009c67f9ce2864cbef	955	257412	ELIANE MARCAL DE OLIVEIRA 0155	540000	605098/605096	2022-11-21 10:09:25	2022-11-24 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 605098/605096	2022-11-21T14:44:33.97	https://cielolink.com.br/3UXXnPy	110364956323LG9ST22E	224018	718824	00	546452******4542	Master	CreditCard	lilhis Menezes	lilhis@hotmail.com	 rua 21 qd 07 lt 08 	 rua 21 qd 07 lt 08 	sol nascente 	São Simão	GO	08	64999661924	79518524653	
+376	c31374a0-50bc-4a12-8c07-b06adde1b25e	24241757ae434eb59963367959fa14c4	962	251842	LAURA LACERDA FERREIRA SILVA	471480	605889/605715/605712	2022-11-30 14:19:50	2022-12-05 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 605889/605715/605712	2022-11-30T19:49:57.223	https://cielolink.com.br/3UiLLWb	110364956323TT02O2DE	224028	248817	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+377	e290d650-4852-44f0-859a-9bde24d8d27d	7828f10b2d7644a5852ebec34382fe6b	955	240391	GISELE MARTINS DOS SANTOS	212000	605933	2022-11-30 15:58:15	2022-12-05 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 605933	2022-12-01T08:32:14.37	https://cielolink.com.br/3UjN6ft	110364956323UQQE5RBE	225040	621225	00	406655******5301	Visa	CreditCard	Gisele Santos	giselemartinsmar@hotmail.com	Avenida Manoel Afonso Cancela	Avenida Manoel Afonso Cancela	Setor Norte Industrial	Ituiutaba	MG	471	34999667040	18555168000129	
+378	d11da824-5196-4a32-8df1-bafdfc607cae	0f86e190f5fd4806bc7ba9cbdce69a59	955	258389	GABRIELA DIAS DE ALMEIDA	558300	606004/606003	2022-12-01 11:13:47	2022-12-05 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 606004/606003	2022-12-01T11:51:35.01	https://cielolink.com.br/3VpBzfQ	110364956323UQQPKIHE	223030	012430	00	548723******3922	Master	CreditCard	Carlos Ameida	vidracariavidrovaz@hotmail.com	 RUA 29 Q 7 L 5 	 RUA 29 Q 7 L 5 	Setor Antônio  Gabriel 	Paranaiguara	GO	05	64984060659	34061355104	
+379	cfa3f8d8-6b8e-4536-8391-052a5b51387a	38557db1e84a44b585ae9b422c66ee27	962	247860	DELIDIO RODRIGUES DIAS FILHO	135200	606046	2022-12-01 15:44:48	2022-12-05 23:59:59	Paid	1	Asset	1	ITEM REFERENTE AO PEDIDO ERP 606046	2022-12-01T15:54:13.563	https://cielolink.com.br/3VqhiqG	110364956323UQR52F5E	225042	641011	00	464127******6368	Visa	CreditCard	Delidio Filho	delidiorodrigues96@gmail.com	 rua Leopoldina Garcia leal	 rua Leopoldina Garcia leal	jardim bocaina	Inocência	MS	369	67981867393	87894017191	
+282		1d43a2c1f9a04c19b9214bdc55c34d2f	965	247159	LUANA VERUSKA GONCALVES OLIVEIRA	280000	604541/604540	2022-11-10 15:05:00	2022-11-14 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 604541/604540	2022-11-10T16:24:00.000	https://cielolink.com.br/3huj9eT	110364956323B7UFI36E	222008	456396	00	485464******8397	Visa	CreditCard	Sabrina Serute	sagoomes5@gmail.com	Rua Chile	Rua Chile	Alto da Boa Vista	Três Lagoas	MS	2587	17982232130	45829337851	\N
+142		e559fab56975472abce11f3d1856e1ea	964	258411	MELRY ANNE BEATRIZ FERREIRA DA S	630000	601802	2022-09-29 15:51:14	2022-10-03 23:59:59	Paid	4	Asset	6	ITEM REFERENTE AO PEDIDO ERP 601802	2022-09-29T17:35:46.927	https://cielolink.com.br/3rhZy3f	110364956322424HVHME	203008	T48739	00	522590******4918	Master	CreditCard	Melry Silva	studio.melfit@hotmail.com	Rua Miranda	Rua Miranda	Primavera 2	Prata	MG	175	34996898780	37591222000136	\N
+170		df89de30f21b4fe0a3f91a400637cecd	964	258341	RESTAURANTE BALANCAO	137942	602151	2022-10-06 16:20:29	2022-10-10 23:59:59	Voided	4	Asset	5	ITEM REFERENTE AO PEDIDO ERP 602151	2022-10-06T17:17:54.000	https://cielolink.com.br/3SGJF2d	110364956322AJ3DJ73E	203016	063555	00	476333******1285	Visa	CreditCard	Jessica martins	jessicalorenafrancomartins@hotmail.com	Sebastião teodoro reis	Sebastião teodoro reis	Parque dos jacares	Prata	MG	170	34999426692	09999393608	\N
+380	ae5b0020-bbaf-446d-b272-19f4a28d145d	27f55585b57f4606ad19f18f50a4282e	964	256121	STENIO DA COSTA PEREIRA 067808	110483	606054/606044	2022-12-01 16:19:01	2022-12-05 23:59:59	Paid	1	Asset	2	ITENS REFERENTES AOS PEDIDOS ERP 606054/606044	2022-12-02T14:48:43.79	https://cielolink.com.br/3VmERk0	110364956323VOMFPCCE	225044	400963	00	458919******1639	Visa	CreditCard	Lethicia Gomes	stenioserralheiro@gmail.com	 Rua A	 Rua A	Primavera 3	Prata	MG	71	34997649514	09662382658	
+384	43cfa8dd-19ca-4f84-90f2-94ef933262db	f9343529d1c34d22b0d835c4146e197f	996	258614	RODOLFO OLIVEIRA SILVA DOS SAN	500000	606132	2022-12-02 15:24:07	2022-12-05 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 606132	2022-12-03T09:52:22.8	https://cielolink.com.br/3ugBK1j	1103649563240MH5D78E	225046	522153	00	520132******6324	Master	CreditCard	Rodolfo Santos	rodolfosansil@hotmail.com	Avenida Campos Sales	Avenida Campos Sales	Nossa Senhora do Carmo	Frutal	MG	400	34999952300	01275327656	
+338		30ee8187c7a542ff8ccc7609a3c0ab20	959	255190	TONISGLEY APARECIDO ANDRADE	890000	604820	2022-11-16 15:50:00	2022-11-21 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 604820	2022-11-16T16:16:29.00	https://cielolink.com.br/3TJuSn8	110364956323GR24N76E	224012	014814	00	531681******1949	Master	CreditCard	Valci souza	cfcfrutal@hotimail.com	Avenida Euvaldo Lodi	Avenida Euvaldo Lodi	XV de Novembro	Frutal	MG	406	34999743057	36007404153	
+329		a2f6ba79e18f4b328a2576e247df9212	962	0	LEONEL PERES DE JESUS	950000	604703/604704	2022-11-14 08:50:00	2022-11-17 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 604703/604704	2022-11-17T11:26:25.00	https://cielolink.com.br3X2gdpY	110364956323HOSUME2E	225016	019836	00	514945******6301	Master	CreditCard	Marcos Santos	mpds1508@gmail.com	Rua Rio Negro	Rua Rio Negro	Parque Residencial Orestes Prata Tibery Junior	Três Lagoas	MS	2522	11980322315	22240027851	
+331		a2f6ba79e18f4b328a2576e247df9212	965	257937	ODAIR DIAS CORREIA	510640	604764/604763	2022-11-14 23:59:59	2022-11-17 23:59:59	Paid	1	Asset	1	ITENS REFERENTES AOS PEDIDOS ERP 604764/604763	2022-11-17T12:47:33.00	https://cielolink.com.br/3TFK7xw	110364956323HOT39J0E	225018	453623	00	651659******0778	Elo	CreditCard	ODAIR CORREIA	odairdiascorreia1@gmail.com	Rua Cláudio Manoel Costa	Rua Cláudio Manoel Costa	Jardim Dourados	Três Lagoas	MS	312	67998016734	30022041885	
+332		dc24b39a15dc427c8404542a395b3536	955	241089	DOUGLAS FRANCISO DE OLIVEIRA	80000	604929	2022-11-17 13:43:00	2022-11-21 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 604929	2022-11-18T07:23:50.00	https://cielolink.com.br/3AoxSPj	110364956323IMO2LLGE	222022	098767	00	530599******4995	Master	CreditCard	Jose Junior	josemanoel.fernandes@yahoo.com.br	Rua Doze-A	Rua Doze-A	Setor Norte	Ituiutaba	MG	335	34999799270	01561126632	
+333		b81ac5278f7b49e296d3563d467b9a99	955	241089	DOUGLAS FRANCISO DE OLIVEIRA	80000	604929	2022-11-17 13:43:00	2022-11-21 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 604929	2022-11-18T07:26:50.00	https://cielolink.com.br/3EDEUlw	110364956323IMO1QJKE	223016	840896	00	489202******9615	Visa	CreditCard	Jose Junior	josemanoel.fernandes@yahoo.com.br	Rua Doze-A	Rua Doze-A	Setor Norte	Ituiutaba	MG	335	34999799270	01561126632	
+335		8d7de46837dd4f4b8aa4ece06ac5c9df	965	258594	EMPRESA JORNALISTICA E EDITORA	500000	604609	2022-11-11 11:11:00	2022-11-16 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 604609	2022-11-16T11:50:50.00	https://cielolink.com.br/3NWcFSj	110364956323GR1P07QE	222020	034455	00	496045******0215	Visa	CreditCard	Wesley Mendonça	opec@agitta.com.br	Avenida Advogado Rosário Congro	Avenida Advogado Rosário Congro	Agitta Comunic - Jardim Angélica	Três Lagoas	MS	2910	6735245030	66262623949	
+337		253bbdedbacf4496ba31876b73e30759	853	0	ANDERSON DE MATOS ELASTICO	1260000	604695	2022-11-16 08:01:00	2022-11-21 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 604695	2022-11-16T11:50:50.00	https://cielolink.com.br/3GC8gCv	110364956323GR1VOB6E	223014	685603	00	406655******9723	Visa	CreditCard	Flavio Machado	flaviormachado@yahoo.com.br	rua Amazonas	rua Amazonas	parque industrial 2	Costa Rica	MS	770	67996554386	41835387004	
+339		2ac0be3f18ef4001871b2dde666f7245	965	240502	MAZAFER COMERCIO DE FERRO	300480	603943	2022-11-16 16:28:00	2022-11-21 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 603943	2022-11-16T16:41:50.00	https://cielolink.com.br/3XbSaoH	110364956323GR24UK4E	224014	414980	00	552693******9792	Master	CreditCard	Marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Trẽs Lagoas	MS	2073	67991380084	08033492899	
+341		0dafe756294a48608f897b306b1b3bad	955	257412	ELIANE MARCAL DE OLIVEIRA	227200	604731	2022-11-14 11:22:00	2022-11-17 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 604731	2022-11-14T12:14:08.00	https://cielolink.com.br/3EvOln6	110364956323EVBCKMTE	226012	922778	00	523421******6513	Master	CreditCard	Bruno Santos	brunocesarsouza13@hotmail.com	avenida Rio de janeiro	avenida Rio de janeiro	aeroporto	São Simão	GO	111	64996627018	02784592189	
+353	fe19550b-447a-4cdc-9b48-ce114732e665	37daf062075c4869b765a7b4e4357b16	962	258599	LEONARA LINAIE LEONEL MAIA	110000	605347	2022-11-22 16:46:47	2022-11-25 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 605347	2022-11-22T16:55:08.463	https://cielolink.com.br/3gtXJOY	110364956323ME5JE9TE	226032	650604	00	464127******7341	Visa	CreditCard	Carlos Silva	ca-lacerda@hotmail.com	 João Ferreira de Oliveira 	 João Ferreira de Oliveira 	izanopoliz 	Cassilândia	MS	496	67982148966	70970114168	
+351	298a6775-28ff-4395-a981-76ce9aee9a00	d0c5b98735364a18b01f912577d1e8e5	959	258635	JUAREZ GRAFFITTI E OUTROS	2935000	605305/605300/605298	2022-11-22 13:14:09	2022-11-25 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 605305/605300/605298	2022-11-22T18:33:33.69	https://cielolink.com.br/3tSljYB	110364956323ME5NHJME	225026	033816	00	422007******6667	Visa	CreditCard	ADRIANO LTDA	vinicius.joaodebarroengenharia@gmail.com	Alameda 5	Alameda 5	Vila Arruda	Fronteira	MG	84	34992474773	28636910000184	
+354	9da254b2-b5c2-4926-9c3e-658baadfdaed	ca35a233e4714b2988f1ded0b16619fa	955	181381	JOSE VICENTE VOLPE AGUIAR	125000	605405	2022-11-23 10:56:37	2022-11-28 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605405	2022-11-23T16:42:36.217	https://cielolink.com.br/3tWE65k	110364956323NC0TA23E	223022	435695	00	466079******3461	Visa	CreditCard	José aguiar	mateira2@hotmail.com	 Setor industrial	 Setor industrial	Industrial	Paranaiguara	GO	101	64984448005	00828854866	
+350	76865829-7acf-4bee-be59-4032335ffd56	cecfed3493f4473da82ad73fb41ebd48	965	227292	ANDERSON DA SILVA FERREIRA	960000	605240	2022-11-21 17:57:22	2022-11-24 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 605240	2022-11-21T18:21:35.693	https://cielolink.com.br/3ErYMab	110364956323LGA7148E	226028	704694	00	498408******1197	Visa	CreditCard	Cleiton ataide	cleitoncfcuniao@gmail.com	Rua Bruno Garcia	Rua Bruno Garcia	Centro	Três Lagoas	MS	697	67999190176	84695080168	
+352	12d9fedf-ebf1-44bd-8a17-a3af157c5e33	94fa066dfaa3494c90cf0c7a700a277d	878	239094	LUCIMEIRE ALVES DE SOUZA	127200	605320	2022-11-22 14:31:14	2022-11-25 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605320	2022-11-22T14:48:53.203	https://cielolink.com.br/3XrtOay	110364956323ME5E0MBE	224020	685173	00	480632******6462	Visa	CreditCard	Lucilei Souza	lucileisoualves@gmail.com	 Rua Presidente Dutra	 Rua Presidente Dutra	Centro	Aparecida do Taboado	MS	3744	11996759793	38957248153	
+357	42576bea-6f46-4eaa-8939-417f6ab24db1	956f1ab462494dc289cad7f4823fc2e1	878	251474	TIAGO MOREIRA RODRIGUES	91314	605383	2022-11-24 08:36:52	2022-11-28 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 605383	2022-11-24T09:38:03.81	https://cielolink.com.br/3ECVOQb	110364956323O9RI2ULE	225028	197324	00	547408******4561	Master	CreditCard	Jonnathan Pereira	jonnathan.eng@icloud.com	 Av presidente Vargas 	 Av presidente Vargas 	Centro 	Aparecida do Taboado	MS	3388	67999871993	33143995000107	
+356	8be6c106-c755-44ad-abb0-9a4f5663c96a	0bdb1e3e3b8e4dbf94b5d14a5db5cf5f	965	258649	CILENE SORAIA RODRIGUES DE CAR	687500	605486	2022-11-24 08:35:03	2022-11-28 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 605486	2022-11-24T11:07:26.67	https://cielolink.com.br/3Vny3SN	110364956323O9RMGN4E	225030	921541	00	498407******4322	Visa	CreditCard	Cilene Diogo	cilenesoraia@gmail.com	Esplanada da NOB	Esplanada da NOB	Santos Dumont	Três Lagoas	MS	100	67999645207	35751860144	
+358	a7428f90-e19b-4197-8254-0ded6a8204b9	c0dbb244def14b119fbb803807e42c85	996	258591	JOAO BATISTA DE SOUZA	339600	605467	2022-11-24 13:39:01	2022-11-28 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605467	2022-11-24T19:53:14.717	https://cielolink.com.br/3EwXPNP	110364956323O9SA5PQE	224022	169628	00	650907******5001	Elo	CreditCard	Heitor leonel	heitor_italeonel@hotmail.com	 Rua 28	 Rua 28	Maria aparecida de assis	Itapagipe	MG	902	34984438271	45357766000166	
+361	a260099c-6042-4af6-8b40-9f540b2d5329	e0ecd32687244c129beb40ea69382449	961	258656	MARCELO VICTOR DOS SANTOS	1097253	605414	2022-11-25 09:29:34	2022-11-28 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 605414	2022-11-25T12:46:59.87	https://cielolink.com.br/3OCBpz3	110364956323P7N72B9E	223024	466384	00	655001******9217	Elo	CreditCard	Rivalmi Mota	julianacmota10@hotmail.com	 Av.manoel Vicente 	 Av.manoel Vicente 	Jardim Camargo ll 	Brasilândia	MS	1503	67998090784	35807733134	
+360	3f1eda27-8a00-4865-a402-c837fb8e24c9	4475f459415543abb760ef2bccae1f7c	878	254781	MARCELO SANS DODSON	173100	605537/605419	2022-11-25 07:19:19	2022-11-28 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 605537/605419	2022-11-25T10:40:36.12	https://cielolink.com.br/3gtzf8F	110364956323P7MU8ACE	224024	039431	00	553665******6129	Master	CreditCard	marcelo dodson	marcelododson@gmail.com	Fazenda Recanto do Sossego, BR 158 Km 183	Fazenda Recanto do Sossego, BR 158 Km 183	rural	Aparecida do Taboado	MS	00	19999413024	98679333620	
+359	b51b6b33-bcf3-4f01-a649-d856a629a9cb	af67fd541c82473e893dd9a884644e47	959	250576	MARCOS ANTONIO DE FREITAS 3022	102000	605538	2022-11-25 07:14:13	2022-11-28 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 605538	2022-11-25T14:42:14.427	https://cielolink.com.br/3GO5BFF	110364956323P7NDNNAE	225032	049137	00	407505******8858	Visa	CreditCard	Gold L	robao907@gmail.com	Rua Tupaciguara	Rua Tupaciguara	Ipê Amarelo	Frutal	MG	1771	34999931399	39572576000169	
+362	ba4d32f5-93b6-4818-9ccf-d94bd405f8d0	a787d8fb5af143249484aeda9e55acf7	965	258660	ZILDA ALVES FREITAS	500068	605594/605593	2022-11-25 13:57:42	2022-11-28 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 605594/605593	2022-11-25T17:10:26.06	https://cielolink.com.br/3Xz30pa	110364956323P7NOJVEE	222030	102258	00	544731******3435	Master	CreditCard	Júlio cardoso	cesarjuliocesar630@gmail.com	Rua Luis Almeida	Rua Luis Almeida	Vila Popular	Três Lagoas	MS	2331	18996408321	38682728877	
+363	6f0f3f21-5780-4207-bd65-c143c34891de	660ddc082a594723af2bf745f9ca6bb0	959	255190	TONISGLEY APARECIDO ANDRADE FE	550000	605602	2022-11-28 06:57:26	2022-12-01 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 605602	2022-11-28T07:09:30.983	https://cielolink.com.br/3u5vedz	110364956323S18POALE	222032	038215	00	415275******0213	Visa	CreditCard	DENYS LEAL	porto396@gmail.com	 Rua Hum	 Rua Hum	Condomínio Gran Rio	Planura	MG	42	11970342111	10060834803	
+364	8079bbea-aa29-4ad3-9325-27fdd9943ab1	631d81282a6e4f1f95d0a09620ba3ca1	955	258604	MB MONTAGENS INDUSTRIAIS E LOC	135300	605660	2022-11-28 07:47:18	2022-12-01 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 605660	2022-11-28T07:49:42.5	https://cielolink.com.br/3VzsEYU	110364956323S18RMA7E	223026	493767	00	544731******7770	Master	CreditCard	Silvia maia	mbmontagens.ind@outlook.com.br	rua Roberto Quirino de Souza 	rua Roberto Quirino de Souza 	Morumbi 	Santa Vitória 	MG	477	34991358809	52953734600	
+366	87d13c7d-0336-43bd-a2f2-77e8d228cb4e	02eeb6e7e20d4312aafb69d3a956b98d	955	258664	INACIO DA FONSECA PERES	887700	605668/605667	2022-11-28 08:59:44	2022-12-01 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 605668/605667	2022-11-28T09:54:40.253	https://cielolink.com.br/3OGYgcR	110364956323S1904RTE	226034	015170	00	415275******3149	Visa	CreditCard	DANILO GUIMARÃES	fonsecaperes@gmail.com	Rua Arthur Ferraz de Almeida	Rua Arthur Ferraz de Almeida	Setor São Paulo	Caçu	GO	1920	64981268601	04857815656	
+365	f6dcfd84-f3de-40ca-84c8-67afc88b33a2	cbfdb4824f7346f89a31d6577a2cf0fc	955	249370	PAULO HUMBERTO DE SOUSA LIMA	212700	605666	2022-11-28 08:33:29	2022-12-01 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 605666	2022-11-28T10:30:54.25	https://cielolink.com.br/3GTkx5s	110364956323S192JJDE	225034	948980	00	515894******2800	Master	CreditCard	Felipe Oliveira	felipeottonioliveira@gmail.com	 Rua jk de Oliveira 	 Rua jk de Oliveira 	Teófilo Nonato 	Paranaiguara	GO	20	64996992554	07510523109	
+367	1001c6f3-eda1-41cd-9986-282b70050589	17bbcdca5950432a83c1762ec4076cde	965	230833	SCHEILA CRISTINA DA SILVA SANT	482300	605224	2022-11-28 11:03:43	2022-12-01 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 605224	2022-11-28T11:18:31.927	https://cielolink.com.br/3Vy1r97	110364956323S195EBNE	225036	682902	00	554482******9620	Master	CreditCard	Alice Xavier	lice_ze@yahoo.com.br	Rua Seis	Rua Seis	Vila Piloto	Três Lagoas	MS	380	67992881216	08963864812	
+368	cf91a7e5-044e-4175-ba20-569ab9434b37	f07ea0f77c7b45c7bcc7320cec3119d1	853	258670	DIEGO ANTUNES FARIA LUCENA	228275	605706/605705	2022-11-28 11:07:58	2022-12-01 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 605706/605705	2022-11-28T12:39:47.717	https://cielolink.com.br/3EKZ63I	110364956323S198GQ3E	224026	394473	00	544731******2363	Master	CreditCard	Diego Lucena	serralheriantunes@gmail.com	 Avenida J	 Avenida J	Eldorado 	Costa Rica	MS	568	67999829488	01008672190	
+369	3cee0012-8b0b-4adf-baef-46f4b9c3c7d3	e6fbbd796488435a8b9816de59984303	955	249370	PAULO HUMBERTO DE SOUSA LIMA	345300	605738	2022-11-29 08:33:04	2022-12-02 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 605738	2022-11-29T10:18:33.19	https://cielolink.com.br/3ii7ctc	110364956323SV44UF1E	226036	194216	00	547408******0727	Master	CreditCard	Ronaldo Nonato	eletronaldo@gmail.com	 R. Industrial	 R. Industrial	Industrial	Paranaiguara	GO	12	64984045223	03293198000137	
+370	b3079eaa-d06a-41af-8cef-a5afeb8b121a	1efabcd3a4c2492e927762179e1cff3c	965	258673	ADEMILSON CARLOS ZEBER	1273626	605746	2022-11-29 09:05:07	2022-12-02 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 605746	2022-11-29T10:41:46.193	https://cielolink.com.br/3GRcrKE	110364956323SV46880E	222034	045266	00	521397******9787	Master	CreditCard	Ademilson Zeber	aczeber@gmail.com	Rua dos Cedros	Rua dos Cedros	Village do Lago	Três Lagoas	MS	155	67996620311	10487337859	
+371	4145d9af-a14e-4d8b-9fe8-a7eed9f03799	d3b528e6af4a4d69b672ba8825b0e006	853	258601	ANDERSON DE MATOS ELASTICO	795000	605768/605733	2022-11-29 10:06:49	2022-12-02 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 605768/605733	2022-11-29T14:01:36.917	https://cielolink.com.br/3OKd1M1	110364956323SV4FLHOE	226038	065318	00	552236******1957	Master	CreditCard	Flavio Machado	flaviormachado@yahoo.com.br	 rua Amazonas 	 rua Amazonas 	parque industrial 2	Costa Rica	MS	770	67996554386	41835387004	
+375	c54dcbb4-9607-43bc-b546-b1cdc9743836	9132c66d08134ad0bd873708b81785ab	853	258670	DIEGO ANTUNES FARIA LUCENA	143055	605857	2022-11-30 08:17:33	2022-12-05 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 605857	2022-11-30T09:10:00.04	https://cielolink.com.br/3VEHVYx	110364956323TSV83HIE	222036	095773	00	544731******2363	Master	CreditCard	Diego Lucena	serralheriantunes@gmail.com	 Avenida J	 Avenida J	Eldorado 	Costa Rica	MS	568	67999829488	01008672190	
+372	133b716e-a89e-43be-8101-0414f0d79b03	3816f0ab1cbf496a9c673ce596b965e0	853	257912	LETICIA FERREIRA DOS SANTOS	230300	605785/605784	2022-11-29 10:59:21	2022-12-02 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 605785/605784	2022-12-02T17:15:04.633	https://cielolink.com.br/3VjfTlu	110364956323VOMMDGAE	222040	491375	00	518814******1729	Master	CreditCard	Leticia santos	leticiafsantis@hotmail.com	 Fernando bastos 	 Fernando bastos 	Novo Horizonte	Água Clara	MS	1301	67999044689	36719124803	
+374	dd71d4f3-fbad-494a-b638-0f530c354852	0f123c4458264e09bbf5b735313120ae	853	247699	FERNANDES GOMES BORGES	626510	605804	2022-11-29 14:38:28	2022-12-02 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 605804	2022-12-01T14:11:07.023	https://cielolink.com.br/3gOczQA	110364956323UQR24DHE	222038	T93261	00	512267******1115	Master	CreditCard	Adair Borges	ada_pretinha@hotmail.com	R. Claudia Beatriz 	R. Claudia Beatriz 	Ramez Tebet 	Costa Rica	MS	491	67998773935	35249935168	
+382	ce4682c5-a3bd-4336-be95-d4e520734903	a501b55d51234638a16648053af38aea	965	257695	BONANZA RECUPERADORA DE PNEUS 	556100	606042	2022-12-02 13:06:34	2022-12-05 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606042	2022-12-05T08:43:36.267	https://cielolink.com.br/3XVDGtt	1103649563242I72R3CE	225048	433480	00	552693******9792	Master	CreditCard	marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	67991380084	08033492899	
+386	44c4629b-ec4a-4b5d-b108-0b885619f22e	2adcff76e54c4b539c04740ea2c4c877	965	227242	MARCELINO PEREIRA DIAS BARBOSA	461605	605969	2022-12-05 11:19:42	2022-12-08 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 605969	2022-12-05T11:49:34.5	https://cielolink.com.br/3UCrtai	1103649563242I7A26SE	223032	493162	00	522840******1007	Master	CreditCard	Thiago Giordano	giordanothiago@gmail.com	Rua Elmano Soares	Rua Elmano Soares	Centro	Três Lagoas	MS	2240	11965772529	34806307823	
+387	28fcaa8f-9b7d-4ba8-8f1e-fba0d9310038	8f2d40baf6a149c891a8331137adb2f9	965	258703	ROBSON LUIS CESTARI	1213340	606187/606186	2022-12-05 12:51:54	2022-12-08 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 606187/606186	2022-12-05T13:04:33.25	https://cielolink.com.br/3Vw5SBR	1103649563242I7DTJME	224030	086396	00	477176******3017	Visa	CreditCard	ROBSON CESTARI	ludmillagbarbosa@hotmail.com	Rua Baldomero Leituga	Rua Baldomero Leituga	Jardim Novo Aeroporto	Três Lagoas	MS	2889	67991432162	99357267891	
+385	ed92e641-7e4c-4550-9e81-586ce95322c9	213d742d273e45f59e287d07fa93e551	955	254921	JOAQUIM MARTINS DE SOUZA	236300	606178	2022-12-05 10:45:56	2022-12-08 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606178	2022-12-05T15:40:34.13	https://cielolink.com.br/3VPJ7Z3	1103649563242I7JBP5E	223034	128257	00	550209******6870	Master	CreditCard	Jefferson Souza	bookabare@gmail.com	Rua 20	Rua 20	Setor Colinas	Jataí	GO	202	64999334275	70209005181	
+383	55c6af4d-5979-4f45-a491-233024ad0765	b2915d4c495d44ca8119b03a0e91c44b	955	241089	DOUGLAS FRANCISCO DE OLIVEIRA	250000	606131	2022-12-02 15:07:09	2022-12-09 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606131	2022-12-07T10:46:40.64	https://cielolink.com.br/3EXP7Zd	1103649563244DTN2QLE	225050	043057	00	530994******8504	Master	CreditCard	Andrielle Nascimento	driellefreitas0000@hotmail.com	Rua Quarenta e Três	Rua Quarenta e Três	Setor Sul	Ituiutaba	MG	725	34988695032	11194743617	
+398	bd8ab7fb-3598-490a-b72f-5d32460cfea1	6120c527041345f194b6739078571a07	964	227462	EIRE ENIO DE FREITAS	158800	606352/606351	2022-12-06 17:03:27	2022-12-09 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 606352/606351	2022-12-07T09:23:08.823	https://cielolink.com.br/3BgEfo1	1103649563244DTJJATE	226046	550449	00	540593******3552	Master	CreditCard	William Souza	willianacp2.0@hotmail.com	 rua Raul Macedo 	 rua Raul Macedo 	esperança 	Prata	MG	77	34999747752	06530089616	
+393	da606d79-551e-4672-a2e6-b577a676b7a7	4b74976d77de460f93e7f1ccffc7e8c0	965	257695	BONANZA RECUPERADORA DE PNEUS 	1260430	606332/606331	2022-12-06 15:56:14	2022-12-09 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 606332/606331	2022-12-06T16:05:20.253	https://cielolink.com.br/3BgsrCd	1103649563243G2Q1AIE	223036	051880	00	552693******9792	Master	CreditCard	Marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	67991380084	08033492899	
+397	acb5677d-ecad-4e02-8c36-c413160fab86	d46ee28062b348e1a8b1177facaa9b47	962	258599	LEONARA LINAIE LEONEL MAIA	124400	606337	2022-12-06 16:42:09	2022-12-09 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 606337	2022-12-06T16:45:29.607	https://cielolink.com.br/3h8iLmE	1103649563243G2RRC0E	224032	743923	00	550209******7417	Master	CreditCard	Leonara Maia	leonaramaia5@gmail.com	 João Ferreira de Oliveira 	 João Ferreira de Oliveira 	izanopoliz 	Cassilândia	MS	524	67982148966	05964337198	
+396	26f19f33-1942-4988-97a3-ddb44f1e2e4f	c18d7d86ab8f4553951704abcb56f0a0	878	254781	MARCELO SANS DODSON	696299	606347/606346	2022-12-06 16:41:25	2022-12-09 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 606347/606346	2022-12-06T17:40:27.847	https://cielolink.com.br/3uquSyt	1103649563243G2V65GE	222042	T52254	00	512267******0916	Master	CreditCard	marcelo dodson	marcelododson@gmail.com	rua palhoça	rua palhoça	res. Portal do Sol	Ilha Solteira	SP	250	19999413024	98679333620	
+401	19fc4d92-b308-468c-9b9c-a0ac2e33f950	4ba59a06bfa34ac386de6487c9c37c0b	965	257695	BONANZA RECUPERADORA DE PNEUS 	152054	606405	2022-12-07 11:27:40	2022-12-12 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606405	2022-12-07T14:40:10.117	https://cielolink.com.br/3uBbFtG	1103649563244DU094QE	225054	400880	00	552693******9792	Master	CreditCard	Marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	67991380084	08033492899	
+392	fdac2477-8916-41a4-9011-402d255317cd	e8227a2c4baf468f800dc6a54d224c91	959	255190	TONISGLEY APARECIDO ANDRADE FE	59000	606334	2022-12-06 15:45:18	2022-12-09 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 606334	2022-12-08T14:48:01.407	https://cielolink.com.br/3uN4n6B	1103649563245HMH9RBC	031001	598428	00	515601******7847	Master	CreditCard	Leone Miranda	leonemiranda@hotmail.com	Rua Louis Francescon	Rua Louis Francescon	Nossa Senhora Aparecida	Frutal	MG	88	34999741444	46218980600	
+391	d1ae85a9-ad93-4258-8a28-68fa54442afb	67b9384b75dd48e68fdf172204c3db3e	955	254921	JOAQUIM MARTINS DE SOUZA	320000	606086	2022-12-06 15:34:13	2022-12-14 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606086	2022-12-13T08:07:32.417	https://cielolink.com.br/3FayklP	110364956324A10LKRGE	229004	672853	00	406655******7208	Visa	CreditCard	Rodolfo Borges	rodolfoborges195@gmail.com	Rua 17	Rua 17	Conjunto Cidade Jardim II	Jataí	GO	482	64999580934	02590520190	
+394	2ccf1ddd-beb5-4f90-b822-2d82866a2326	fd33dd64ec9c4235b384233f071c4e87	853	258601	ANDERSON DE MATOS ELASTICO	453560	606344/606340	2022-12-06 16:24:09	2022-12-09 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 606344/606340	2022-12-07T11:56:40.31	https://cielolink.com.br/3ivBo43	1103649563244DTQ1B3E	225052	295970	00	498431******6165	Visa	CreditCard	Flavio Machado	flaviormachado@yahoo.com.br	 rua Amazonas 	 rua Amazonas 	parque industrial 2	Costa Rica	MS	770	67996554386	41835387004	
+403	a8b70a7f-5f53-4fe2-8b2f-2e1cebd80499	39787517978f40598d5140ada2a15e39	878	11095	SOLIVAN HONORIO DA SILVA	230449	606448	2022-12-07 16:56:06	2022-12-12 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606448	2022-12-07T17:01:33.843	https://cielolink.com.br/3F7Qbtv	1103649563244DU6GKVE	224040	515113	00	547408******0064	Master	CreditCard	Solivan silva	milcores01@gmail.com	 Avenida são Cristóvão 	 Avenida são Cristóvão 	São luiz	Sobrado	PB	1722	67981669440	58342664104	
+406	04dd3ac4-fb39-4582-8e40-ec9d8412deed	c90e7ac9356f4230958d0e74239e46e6	853	242390	M F DE SOUZA SERRALHERIA EIREL	200000	606451	2022-12-08 11:26:07	2022-12-12 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606451	2022-12-10T17:28:17.09	https://cielolink.com.br/3HlfEm0	11036495632477FOF99E	230002	681511	00	455183******5203	Visa	CreditCard	Edilma Silva	edylma.india@hotmail.com	 rua Francisco Vieira	 rua Francisco Vieira	novo paraíso 	Água Clara	MS	27	67984628117	04651313523	
+409	d32df92b-eb2c-48a1-9a4d-7971b9759eec	7bbe8b3c46f4461b9f126e9d0e6fa0ed	965	258563	ORLANDO MERSE DA SILVA	316034	606555/606554/606553	2022-12-08 17:24:37	2022-12-12 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 606555/606554/606553	2022-12-08T17:29:55.99	https://cielolink.com.br/3Pbayue	1103649563245HN5RVNC	032001	557667	00	485464******9579	Visa	CreditCard	Julio Lima	jjjcesarlima@gmail.com	Avenida Advogado Rosário Congro	Avenida Advogado Rosário Congro	Jardim das Américas	Três Lagoas	MS	4716	67991065141	86159143115	
+412	46465904-bd28-4973-b60a-5e14ad3848ce	a5e3a156fb1c46c78427bb5c23a002f7	962	251842	LAURA LACERDA FERREIRA SILVA	102100	606262	2022-12-12 09:23:02	2022-12-15 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 606262	2022-12-12T09:57:40.01	https://cielolink.com.br/3FfJjdA	1103649563249354A40E	231002	600055	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+416	a880916c-6ad1-4579-b11b-162922ed9b6d	d994070cb1f741b9a8e10426608ff573	962	258732	CARLOS EDUARDO GARAVELO	590000	606644/606642	2022-12-12 12:53:44	2022-12-15 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 606644/606642	2022-12-12T13:21:47.083	https://cielolink.com.br/3Yhmgba	110364956324935EI4OE	230004	415488	00	548573******6935	Master	CreditCard	Andréa Garavelo	deia.gomes.sa@hotmail.com	 Rua César Mário Mancini 	 Rua César Mário Mancini 	Jardim Brasília 	Paranaíba	MS	1320	67992642309	17546341841	
+417	e983d04c-da5b-4fff-a41e-0dc95eab6096	fa4504b5969a4497b405a1bab8b0ca5e	996	258591	JOAO BATISTA DE SOUZA	357000	606721	2022-12-12 14:13:49	2022-12-15 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 606721	2022-12-12T14:26:13.08	https://cielolink.com.br/3YfFJsA	110364956324935GMTKE	227004	725532	00	466068******6317	Visa	CreditCard	Heitor leonel	hlmateriaisparaconstrucao@hotmail.com	 Rua 28	 Rua 28	Maria aparecida de assks	Itapagipe	MG	902	34984438271	45357766000166	
+418	7621f287-22f6-435c-a80a-04a3d8339ba5	f056ab7d3bd64ffa975c2b374ca11875	965	258698	FENIX COMUNICACAO VISUAL LTDA	700520	606211	2022-12-12 14:57:18	2022-12-15 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 606211	2022-12-12T15:30:05.073	https://cielolink.com.br/3hkTtBO	110364956324935KTFRE	228006	600291	00	536805******7153	Master	CreditCard	LUIZ SOUZA	LGPREMIX@HOTMAIL.COM	Rua Advogado Sabino José da Costa	Rua Advogado Sabino José da Costa	Jardim Primaveril	Três Lagoas	MS	366	67999650560	23806605149	
+415	c428593e-42e8-4b5b-8879-af351c188688	21b412a565c34180bb361c796bf37d13	853	258731	JOSE WANDERLY SCARPIN	450000	606539	2022-12-12 09:39:05	2022-12-15 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606539	2022-12-13T09:46:17.843	https://cielolink.com.br/3VPkAE9	110364956324A10PV9ME	231004	661515	00	651652******2252	Elo	CreditCard	Guimarino pereira	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67999515403	47528435104	
+420	0d360582-36e5-4c70-b1cd-9298523f9e45	82ac3286b06342ed9aef81b3388571c3	961	253429	FERNANDO CARDOSO VIEIRA	147138	606766/606765	2022-12-13 07:55:50	2022-12-16 23:59:59	Paid	1	Asset	4	ITENS REFERENTES AOS PEDIDOS ERP 606766/606765	2022-12-13T08:54:38.377	https://cielolink.com.br/3Pk9QLz	110364956324A10NKINE	227008	643630	00	453211******7776	Visa	CreditCard	DINO COSTA	dinoemirian.2017@gmail.com	 Antônio Pereira Melo 	 Antônio Pereira Melo 	Juvenal serafim huchoa	Brasilândia	MS	25	67996531125	69885036172	
+419	37a75ece-792e-434c-b297-ee836162ee9e	32b456db4c124ebcab9477eb937fd58b	959	255190	TONISGLEY APARECIDO ANDRADE FE	440000	606737	2022-12-12 15:52:19	2022-12-14 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606737	2022-12-13T10:41:04.633	https://cielolink.com.br/3WeCwI7	110364956324A10RMIFE	231006	557271	00	538164******0721	Master	CreditCard	Rafael Nascimento	rafael_corino@hotmail.com	 Rua João Alves de Paiva 	 Rua João Alves de Paiva 	Centro	Planura	MG	110	34998560809	08460970604	
+422	549bbf7c-616c-439f-9a00-b82a76fb5df8	8c533ec31f1c4d558c344baa21cde5e9	955	254921	JOAQUIM MARTINS DE SOUZA	70000	606866	2022-12-14 07:32:13	2022-12-19 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 606866	2022-12-14T08:02:26.7	https://cielolink.com.br/3PopiX1	110364956324AUSCJJVE	231008	IJNJHQ	00	423154******2714	Visa	CreditCard	Luciana Calçada	caluci10@hotmail.com	Rua Santos Dumont	Rua Santos Dumont	Setor Aeroporto	Jataí	GO	876	64992359519	87814765153	
+424	c21fcdd7-45c1-4023-b7f4-e73fa757e063	6a2f8d52fd1248ad9733966cbb561ead	996	256763	ROMES CESAR DA SILVA	190000	606069	2022-12-14 09:25:31	2022-12-19 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 606069	2022-12-14T10:12:20.93	https://cielolink.com.br/3WdUMBe	110364956324AUSK1QUE	230006	844698	00	543966******6119	Master	CreditCard	Abel Frutuoso	abelfloricultura@hotmail.com	 Joaquim jose Ramos 	 Joaquim jose Ramos 	Jardim das Esmeraldas	Frutal	MG	107	34997662131	04923172673	
+425	df9e4c80-258a-4c2a-ac4b-f06974282cc8		1001	233840	CESAR DONIZETTI DE CASTRO	114500	606900	2022-12-14 11:14:58	2022-12-19 23:59:59		0	Asset	3	ITEM REFERENTE AO PEDIDO ERP 606900		https://cielolink.com.br/3hmsTbB																		
+426	b408be53-2486-4605-8805-6f29fedac8ab	eb5d72ea7b564a08bc3b36f48dc018f2	965	257695	BONANZA RECUPERADORA DE PNEUS 	160000	606934	2022-12-14 15:34:55	2022-12-19 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606934	2022-12-14T15:49:56.27	https://cielolink.com.br/3YmxtqP	110364956324AUT227SE	227010	495480	00	552693******9792	Master	CreditCard	Marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	67991380084	08033492899	
+427	4bf3d6e5-81d1-430e-b25f-f0e2c6467846	463985194f524cddb01f9132c41f28c0	959	258441	DROGARIA JJ DE FRUTAL LTDA	110000	606964	2022-12-15 08:30:12	2022-12-19 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 606964	2022-12-15T08:34:31.803	https://cielolink.com.br/3Pw0xIq	110364956324BSO3QFVE	227012	642930	00	453211******7334	Visa	CreditCard	Junior Silva	jabsilva@yahoo.com.br	Avenida Rio de Janeiro	Avenida Rio de Janeiro	Ipê Amarelo	Frutal	MG	2991	34996632173	04505275655	
+428	44271c44-82d4-4eee-9f67-f9899319bde8	6dbb0a7852aa4be68a168d2a04a1ee32	965	227292	ANDERSON DA SILVA FERREIRA	175200	606378	2022-12-15 09:52:06	2022-12-19 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 606378	2022-12-15T09:57:03.193	https://cielolink.com.br/3WjHx1V	110364956324BSO7KH7E	229006	618305	00	498407******3827	Visa	CreditCard	Eraldo Neves	eraldo.neves.eraldo@gmail.com	Rua Maria Guilhermina Esteves	Rua Maria Guilhermina Esteves	Santos Dumont	Três Lagoas	MS	695	11979930880	86411926891	
+429	6723441c-8559-4ee6-85ff-54d8ab3ffdb6	623671b31da249a5a779f3246bae6ebe	959	255190	TONISGLEY APARECIDO ANDRADE FE	278850	607021	2022-12-15 15:54:04	2022-12-19 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607021	2022-12-15T16:05:45.227	https://cielolink.com.br/3HGYHCC	110364956324BSOO2PDE	231010	951523	00	519704******8897	Master	CreditCard	MÁRCIO MARANO	marciomarano@hotmail.com	Rua Domiciano Ferreira	Rua Domiciano Ferreira	Centro	Frutal	MG	410	34999743966	04889671633	
+437	045ec063-a9c5-414f-950f-32e6215f91ae	cac481f969934a459838d4116d45680d	996	256763	ROMES CESAR DA SILVA	104000	607217	2022-12-19 16:02:13	2022-12-22 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 607217	2022-12-19T16:35:03.987	https://cielolink.com.br/3BNtI3V	110364956324FK4PBC3E	227016	196131	00	458919******6394	Visa	CreditCard	Daniella Cortes	danibcortes@hotmail.com	Rua Salto das Sete Quedas	Rua Salto das Sete Quedas	Cidade das Águas	Frutal	MG	56	34988235459	10503178667	
+431	c083ecce-6c18-47e9-ba11-9d705184036d	27c468b13f7d4d6e89e79d0323d8bfb5	962	257651	LUCIANO AFONSO QUEIROZ	80750	607070	2022-12-16 10:11:02	2022-12-19 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607070	2022-12-16T10:35:34.087	https://cielolink.com.br/3Pv8YUr	110364956324CQJF3PIE	227014	353271	00	544731******7953	Master	CreditCard	Rony Osaki	serralheriaosaki@hotmail.com	 Heliodoro Rodrigues 	 Heliodoro Rodrigues 	Centro	Paranaíba	MS	415	67981161913	66376092187	
+433	1161ac08-d382-40b2-9a52-d0a557059db3	2d81d33a1404429ca6605b4d560207ae	962	258556	DANIELLY DE OLIVEIRA PILZ KOGA	54800	607140	2022-12-19 07:50:34	2022-12-22 23:59:59	Paid	1	Asset	1	ITEM REFERENTE AO PEDIDO ERP 607140	2022-12-19T19:38:25.773	https://cielolink.com.br/3G2465W	110364956324FK514HQE	229014	682418	00	650901******5686	Elo	CreditCard	Leandro lemes	leandro-9108@hotmail.com	 Rua Ademar Pereira de Camargo 	 Rua Ademar Pereira de Camargo 	Vila Pernambuco 	Cassilândia	MS	189	67998342384	03986265104	
+435	8c9fb9e4-eed3-4b7d-9ba1-19ca17058fc3	88c5a070e4da442db9ddf4018280f187	965	240502	MAZAFER COMERCIO DE FERRO E AC	629358	607157/607138	2022-12-19 08:59:20	2022-12-22 23:59:59	Paid	1	Asset	5	ITENS REFERENTES AOS PEDIDOS ERP 607157/607138	2022-12-19T09:34:51.077	https://cielolink.com.br/3WxEzqV	110364956324FK49L1NE	231016	046253	00	541555******9036	Master	CreditCard	Marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	67991380084	24721978000100	
+430	5274cf7e-8593-42d6-b5b1-f7688314d4a5	02e0d6a1a89f45b5b3fae6ac62195e18	965	227072	DECIO JOSE DA SILVA	563600	607049	2022-12-16 08:15:18	2022-12-21 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607049	2022-12-19T11:34:13.957	https://cielolink.com.br/3YuhXJG	110364956324FK4EA56E	231018	641102	00	480632******4940	Visa	CreditCard	DANILO SILVA	daniloxxv@hotmail.com	Rua José Lopes Barbosa	Rua José Lopes Barbosa	Jardim Cangalha	Três Lagoas	MS	1668	35998115787	02853336158	
+432	75fe520a-2714-4d9b-aeb3-84563ceb818d	abfc02a4d1504057801dd751c078edd6	965	258760	FATIMA ELLER ALVES	236000	607134/607132	2022-12-16 17:20:02	2022-12-20 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 607134/607132	2022-12-19T14:24:51.56	https://cielolink.com.br/3htM8A3	110364956324FK4L9DQE	230008	017374	00	414506******1622	Visa	CreditCard	FATIMA ALVES	fatimaellera@gmail.com	Rua Rio Paraná	Rua Rio Paraná	Parque Residencial Orestes Prata Tibery Junior	Três Lagoas	MS	2776	67984814299	20448245825	
+441	aeed3e59-bed2-4f34-b9da-6f62db497c9a	a257afcedd4c4f0fbcc7cd8535048f8c	962	251842	LAURA LACERDA FERREIRA SILVA	368300	606905	2022-12-20 09:38:12	2022-12-23 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 606905	2022-12-20T10:44:27.413	https://cielolink.com.br/3hBPSj0	110364956324GHVFLABE	230010	665341	00	651653******9882	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+438	444103bd-fba4-4621-ac52-faac38ac5409	b23a6354764e466f8b41714518afdd90	853	242390	M F DE SOUZA SERRALHERIA EIREL	326100	607250	2022-12-20 08:23:31	2022-12-23 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 607250	2022-12-20T15:59:29.643	https://cielolink.com.br/3HRHwhM	110364956324GHVS1FTE	230012	692725	00	651652******2252	Elo	CreditCard	Guimarino pereira	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67996348512	01681148102	
+442	12b4f410-7bc8-4637-b424-1de95436c54e	8c25bc949060468093ef77f519921ffd	996	258776	WELINGTON ILIDIO DE BRITO	4476900	607309	2022-12-20 16:53:31	2022-12-23 23:59:59	Denied	0	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607309	2022-12-20T18:33:05.09	https://cielolink.com.br/3YPgePg	110364956324GI04TEGE	230014		62	498453******1125	Visa	CreditCard	Welington Brito	karynebrito@hotmail.com	Rua Teodoro da Silveira	Rua Teodoro da Silveira	Nossa Senhora do Carmo	Frutal	MG	505	34996663327	18425208149	
+440	719b366a-29c8-4904-b8ac-d62406ae1191	0df46467072744b783ed6f0e08e0ca21	955	255036	GILMAR NUNES DA SILVA	2126696	607257/607245/607240/607239	2022-12-20 08:57:33	2022-12-23 23:59:59	Paid	1	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 607257/607245/607240/607239	2022-12-20T20:01:48.023	https://cielolink.com.br/3BOwJRQ	110364956324GI098VPE	230016	022654	00	651676******3928	Elo	CreditCard	Junior borges	juniorcesar1@hotmail.com	 viela Lázara Pires da silva	 viela Lázara Pires da silva	são paulo	Caçu	GO	61	64984097926	00770208126	
+443	4fc09a09-1e2e-4174-874c-5ec561d98f64	5eaad0d36d124bbcb2553d25b6ca06e1	965	249961	FERNANDO DE AQUINO CAMILO	94400	607322	2022-12-21 07:41:53	2022-12-26 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 607322	2022-12-21T08:16:24.127	https://cielolink.com.br/3BRDsu7	110364956324HFQJIFIE	229018	031500	00	470598******4777	Visa	CreditCard	Marcia Barros	marcia@protegetl.com.br	Rua Manoel José de Lima	Rua Manoel José de Lima	Jardim das Paineiras	Três Lagoas	MS	386	67992062744	65438884900	
+24	527337d9-fdf8-47a3-b6e5-c10e4ae63570	45bb099371e8412886e15893a24df9cb	758	254921	JOAQUIM MARTINS DE SOUZA	840000	595584	2022-07-04 08:19:34	2023-01-04 23:59:59	Paid	1	Asset	1	ITENS REFERENTE AO PEDIDO ERP PEDIDO 595584	2022-07-05T07:17:59.607	teste	11036495631VKDGUMARE	148006	672308	00	526549******1907	teste	CreditCard	Wellington Assis	bookabare@hotmail.com	Rua 20	Rua 20	Setor Colinas	Jataí	GO	202	64984047310	00478303106	teste
+439	9dab9b4b-dfd2-4e98-8fb5-a88bff6d7002	b1644e5c9aba4ef3a97010114df9b51f	853	242390	M F DE SOUZA SERRALHERIA EIREL	200000	607250	2022-12-20 08:23:31	2022-12-23 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 607250	2022-12-20T21:44:02.643	https://cielolink.com.br/3HOEcns	110364956324GI0BSBVE	229016	640277	00	651652******2252	Elo	CreditCard	Guimarino Pereira	fabio.rossignolo@hotmail.com	 Nelson Batista de Lima 	 Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67996348512	01681148102	
+445	b4eda64b-361b-459c-a876-4c1da9c50ab2	44db44e1dd954d998110697bcae8e7cf	996	258125	EMPORIO NAUTICO LTDA	443003	607426	2023-01-02 11:29:20	2023-01-05 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607426	2023-01-02T12:24:56.367	https://cielolink.com.br/3G8Vjhq	11036495632NC2CBBDLE	232004	078993	00	470598******0488	Visa	CreditCard	Eliane Ustulin	elianesustulin13@gmail.com	 avenida Rio Grande  	 avenida Rio Grande  	Grande Reserva 	Fronteira	MG	560	34999323521	10166310654	
+450	8022a9ed-2822-4305-9d57-363102e8e026		965	244577	MORAES E FERREIRA INCORP IMOB 	492915	607516/607514/607513	2023-01-03 09:38:07	2023-01-06 23:59:59		0	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 607516/607514/607513		https://cielolink.com.br/3CGS00f																		
+444	9d55f85b-7ced-451e-850a-9851650b0845	24dfd00e45e246d5ade0de144ee42901	955	254921	JOAQUIM MARTINS DE SOUZA	225000	607454	2023-01-02 11:26:57	2023-01-05 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 607454	2023-01-02T12:39:40.883	https://cielolink.com.br/3CgK4ma	11036495632NC2CARBDE	234002	393769	00	544731******9085	Master	CreditCard	geandro Rocha	geandrorocha@hotmail.com	Avenida Pedro Ludovico	Avenida Pedro Ludovico	Setor Brasília	Jataí	GO	3	64999684080	00411461150	
+31	8dd29e03-cb9a-4fa7-81e3-cd5582ee031e	4f118b3c44d840e9a313136339c4e7b3	758	258011	NELSON FERNANDES DE FREITAS	311900	596131	2022-07-12 11:19:13	2022-07-15 00:00:00	Paid	4	Asset	5	ITENS REFERENTE AO ERP 596131	2022-07-14T13:33:46.737	https://cielolink.com.br/3IuNtj5	11036495631VSQBFQVDE	157002	634460	00	408194******7126	teste	CreditCard	Nelson Freitas	nelsonfernadesfreitas72@gmail.com	 Rua doutor Luiz Nunes ribeiro	 Rua doutor Luiz Nunes ribeiro	JD America	Paranaíba	MS	2045	67982153388	55460950163	teste22234
+449	511411bf-59b9-47df-a59c-83c8cd63f6b9	62958acd51ac48cb9107c869e10aaeeb	962	251842	LAURA LACERDA FERREIRA SILVA	211050	607503	2023-01-03 09:20:28	2023-01-06 23:59:59	Paid	1	Asset	2	ITEM REFERENTE AO PEDIDO ERP 607503	2023-01-03T10:21:35.15	https://cielolink.com.br/3VIY1A1	11036495632ND07IVD3E	233004	187835	00	651653******9456	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+451	58098fd2-6390-4a37-a950-d7977c04f35a	b1aed9fdde9841f586ff3ac89c52a265	965	246619	DANIEL DA SILVA LIMA	422500	607561	2023-01-03 17:14:35	2023-01-06 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607561	2023-01-04T09:24:40.063	https://cielolink.com.br/3VCP3UN	11036495632NDU2DEEIE	233006	243580	00	552693******9792	Master	CreditCard	marcelo lima	mazaffer@hotmail.com	Avenida Clodoaldo Garcia	Avenida Clodoaldo Garcia	Vila Guanabara	Três Lagoas	MS	2073	6735219124	08033492899	
+446	1de60654-fe34-4935-8322-859a817d237c	eb4bc5a2080b41eb9fd2f034cdb45aa1	955	252642	GEZO RODRIGUES DE ALMEIDA	196000	607495	2023-01-02 17:50:59	2023-01-05 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 607495	2023-01-03T18:42:50.707	https://cielolink.com.br/3VG8goD	11036495632ND083NQIE	232006	020329	00	548724******3904	Master	CreditCard	marlucia jesus	carlienesantos2007@hotmail.com	 Rua 30 N 46	 Rua 30 N 46	vila cristina	Paranaiguara	GO	46	64984375395	75126532553	
+453	7daf55f4-2fdb-4250-8ede-ea8aaa857dc1	20cb661fd0074ba0af20e7dc03d93366	962	251842	LAURA LACERDA FERREIRA SILVA	216120	607757/607689	2023-01-05 15:06:27	2023-01-09 23:59:59	Paid	1	Asset	1	ITENS REFERENTES AOS PEDIDOS ERP 607757/607689	2023-01-05T15:16:32.737	https://cielolink.com.br/3IqeQfY	11036495632NERTU5TPE	234004	218833	00	651653******9456	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	538	67998311210	44618794100	
+452	edd35412-3761-4dc4-ba38-a8a53e05f186	4c176b3b0408435d98004851809c303b	177	258794	LUCAS HENRIQUE ALVES ESCOBAR	352740	607671	2023-01-04 15:51:19	2023-01-09 23:59:59	Paid	1	Asset	7	ITEM REFERENTE AO PEDIDO ERP 607671	2023-01-05T16:00:21.183	https://cielolink.com.br/3Io0Q6H	11036495632NERTV0SKE	236002	042997	00	422053******9039	Visa	CreditCard	Lucas Escobar	le264192@gmail.com	Rua Alcides Brunini	Rua Alcides Brunini	Belo Horizonte II	Votuporanga	SP	4984	17996611196	37852975801	
+456	5a0e2725-807f-44a1-810d-b83f48ab505d	7c51d8e0c083442faa055cec76626fb5	961	258511	SUPERMERCADO BEIRA RIO PANORAM	420501	607854	2023-01-06 14:02:56	2023-01-09 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607854	2023-01-06T14:42:37.143	https://cielolink.com.br/3vHG0Yb	11036495632NFPPIBALE	239002	T00192	00	511781******0443	Master	CreditCard	Pedro neves	pedroneves.com@gmail.com	 Manoel Galdino de Souza 	 Manoel Galdino de Souza 	centro	Brasilândia	MS	672	67981479909	34780296862	
+455	2edcb601-0a9d-4a15-98e1-8aff2f78d208	b5a102bc1c4746b7879273aea84f3181	878	247152	JEFFERSON CARLOS FALLA	200000	607852	2023-01-06 13:47:22	2023-01-09 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 607852	2023-01-06T14:39:35.397	https://cielolink.com.br/3GI8qHZ	11036495632NFPPIK6SE	238002	T06657	00	230650******6181	Master	CreditCard	Giulianna Ernesto	giulianna_dias14@hotmail.com	 avenida da saudade 	 avenida da saudade 	Jardim Félix 	Aparecida do Taboado	MS	2027	16993885792	38656421875	
+458	b1111c2c-e8f6-4e24-9b24-8c50fe5f21ab		996	256763	ROMES CESAR DA SILVA	201000	607893	2023-01-06 16:34:35	2023-01-09 23:59:59		0	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607893		https://cielolink.com.br/3Xfnwu3																		
+460	79e2cdf1-9d89-4128-a808-adb0d4e952fd	9773174e49d74765927b6f7213daad72	955	241089	DOUGLAS FRANCISCO DE OLIVEIRA	200000	607774	2023-01-09 09:03:22	2023-01-12 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607774	2023-01-09T10:24:06.14	https://cielolink.com.br/3IwdYqn	11036495632NIJ9RLH5E	240002	078721	00	530994******5208	Master	CreditCard	osenilda Silva	osenildaapdasilva@gmail.com	Avenida Paranaíba	Avenida Paranaíba	Marta Helena	Ituiutaba	MG	3337	34999736552	06985940617	
+464	ce0d7c32-a18c-4fab-8d04-2db958acc579	1dfe89878afd49aeaa8f6d1f8e110079	962	250657	MARIO RIBEIRO DA SILVA EIRELI	120000	607984	2023-01-09 14:30:40	2023-01-12 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 607984	2023-01-09T14:42:32.077	https://cielolink.com.br/3VWEXOS	11036495632NIJA65V1E	240004	298073	00	498431******3322	Visa	CreditCard	Mário EIRELI	mariodijavejire@hotmail.com	 Av. José de Castro 	 Av. José de Castro 	Jardim América 	Paranaíba	MS	100	67981333709	29590580000104	
+465	9bb7518f-e177-4b3e-8b22-f4f75fc26840	d690684b90c14db0a6ba8e893a0b0478	964	237557	ARTE FORROS DIVISORIAS E REVES	1471350	608006	2023-01-09 15:27:14	2023-01-12 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 608006	2023-01-09T15:59:33.483	https://cielolink.com.br/3vVSyex	11036495632NIJA6VI4E	241002	720506	00	499818******2074	Visa	CreditCard	CLAYTON SILVA	claytonavelinodasilva@gmail.com	Avenida Araguari	Avenida Araguari	Martins	Uberlândia	MG	377	34992150151	06247509650	
+461	bb210827-5d0c-4d0e-b53a-7e24baabc8d6	36cd393156044836af5a9ba59d533a46	853	242390	M F DE SOUZA SERRALHERIA EIREL	280000	607896	2023-01-09 09:55:25	2023-01-12 23:59:59	Paid	1	Asset	5	ITEM REFERENTE AO PEDIDO ERP 607896	2023-01-09T16:16:00.743	https://cielolink.com.br/3WZLPMI	11036495632NIJA8T6CE	238004	655580	00	650486******3790	Elo	CreditCard	Maique Souza	fabio.rossignolo@hotmail.com	 Rua Nelson Batista de Lima 	 Rua Nelson Batista de Lima 	Rio Verde 	Água Clara	MS	36	67996348512	01681148102	
+462	1c09a469-1b31-44ca-bd40-fae6784f273e	f243143309294a20bb37bd1c6a9671b4	853	258815	EDINAEL DA COSTA ALMEIDA	172000	607961/607960	2023-01-09 10:40:39	2023-01-12 23:59:59	Paid	1	Asset	3	ITENS REFERENTES AOS PEDIDOS ERP 607961/607960	2023-01-09T17:00:42.223	https://cielolink.com.br/3vLNz02	11036495632NIJA9PFBE	239004	992070	00	230744******3218	Master	CreditCard	edinael Almeida	edinaely2@gmail.com	 Rua Manoel Ferreira de Freitas,	 Rua Manoel Ferreira de Freitas,	Laranjeiras 	Cassilândia	MS	91	64992919140	05209229300	
+457	209ae5ac-4dc4-4f7e-b61c-499fece4f533	8f51f7c552a649e4888e486270e572bd	965	258425	JOSE CICERO VIEIRA DA SILVA	120337	607890	2023-01-06 16:06:35	2023-01-09 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607890	2023-01-09T17:30:58.51	https://cielolink.com.br/3ii8YuN	11036495632NIJADFDGE	238006	016711	00	606282******1747	Hipercard	CreditCard	deusdite santos	byancamartins715@gmail.com	Rua Theófilo Pereira da Costa	Rua Theófilo Pereira da Costa	Novo Oeste II	Três Lagoas	MS	101	67993324238	14285571480	
+459	a89b787d-106c-41e2-b734-e493e279b64d	01afc86b91b74346b2322c86ea57d6b3	962	251842	LAURA LACERDA FERREIRA SILVA	27700	607862	2023-01-09 08:39:21	2023-01-12 23:59:59	Paid	1	Asset	1	ITEM REFERENTE AO PEDIDO ERP 607862	2023-01-09T17:48:30.363	https://cielolink.com.br/3GtyNA8	11036495632NIJADJ80E	238008	062141	00	651653******9456	Elo	CreditCard	Olivalto Júnior	vjserralheria@gmail.com	 Rua Eulina Paula Rocha	 Rua Eulina Paula Rocha	Centro	Inocência	MS	134	67998311210	44618794100	
+463	722b3ead-2943-4638-89be-c568196ab049	751b33fd2e7247239c54da7383c7b0fa	965	248572	RICHARD GONCALVES DOS SANTOS	109100	607976	2023-01-09 13:51:26	2023-01-12 23:59:59	Paid	1	Asset	3	ITEM REFERENTE AO PEDIDO ERP 607976	2023-01-09T18:37:01.497	https://cielolink.com.br/3ICuJjO	11036495632NIJAEQ4NE	239006	365960	00	520132******6458	Master	CreditCard	Gilcemar Custódio	djgil3l.gp@gmail.com	Rua Trinta e Cinco	Rua Trinta e Cinco	Vila Piloto	Três Lagoas	MS	160	67999852811	02091315192	
+468	7990482c-f083-4b56-a613-243c0147497d	f6fbd134c397478fbc03d162012a15f6	959	255190	TONISGLEY APARECIDO ANDRADE FE	2100000	608095	2023-01-10 11:17:09	2023-01-13 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 608095	2023-01-10T12:23:58.59	https://cielolink.com.br/3vPc6RU	11036495632NJH5883FE	237004	810127	00	421960******1511	Visa	CreditCard	João Palhares	joaopaulopalhares123@gmail.com	Rua João Pinheiro	Rua João Pinheiro	Centro	Frutal	MG	143	34992984528	11712475673	
+470	f24c41d0-ff71-4117-90d4-500a81b30948		964	257440	MANASSES OTAVIANO TOLEDO	832500	607910/607909	2023-01-10 15:10:54	2023-01-13 23:59:59		0	Asset	6	ITENS REFERENTES AOS PEDIDOS ERP 607910/607909		https://cielolink.com.br/3GTvyTL																		
+471	cf79027f-0736-4b59-bf7b-d58119f0a375	03540db231ae43aaad9506b147bee50b	964	258105	WAGNER MARZINOTO DOS SANTOS \t	173360	608111	2023-01-10 15:12:18	2023-01-13 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 608111	2023-01-10T15:53:54.51	https://cielolink.com.br/3XCLrUv	11036495632NJH5DCTKE	241004	883640	00	512707******1587	Master	CreditCard	Valdinei Santos	ney.msantos1987@gmail.com	 rua prefeito Antônio Gonçalves de Paula 	 rua prefeito Antônio Gonçalves de Paula 	Sebastião Soares 	Itapagipe	MG	5090	34999679239	35792158843	
+466	9d7a06b8-32fa-474f-846d-ab2d9fc2a105	95d04d9010b04cdfa386d108200d8d29	878	258802	ALINE PINHEIRO DE SOUZA	144600	608019	2023-01-10 08:21:53	2023-01-13 23:59:59	Paid	1	Asset	4	ITEM REFERENTE AO PEDIDO ERP 608019	2023-01-10T16:38:42.293	https://cielolink.com.br/3ICDCcV	11036495632NJH5H0FHE	239008	488863	00	650907******5430	Elo	CreditCard	ALINE PINHEIRO	apsolarenergiasolarfinanceiro@gmail.com	rua guanabara	rua guanabara	residencial ovideo	Aparecida do Taboado	MS	1076	67991673309	03343608114	
+469	f983ba72-351f-4dab-a3d1-b7fd8abec4a8	1ee4a5aa42134086a3a791618036ed17	959	255190	TONISGLEY APARECIDO ANDRADE FE	590000	608096	2023-01-10 11:19:44	2023-01-13 23:59:59	Paid	1	Asset	6	ITEM REFERENTE AO PEDIDO ERP 608096	2023-01-11T09:49:25.803	https://cielolink.com.br/3Qvag2a	11036495632NKF0D9H8E	237006	524742	00	485464******5333	Visa	CreditCard	Rita Morais	ritac4325@gmail.com	 rua araxa	 rua araxa	centro	Planura	MG	219	34991215007	46336907600	
+\.
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.users (id, eco_id, fire_id, erp_id, ws_hash) FROM stdin;
+3	41	YYVSgDDsELRGSJalZtI7e7yAhCj1	0	\N
+4	0	S06I6R59yTNJYuiTzkpQKRkYzLp1	0	\N
+7	48	432h4bh32kb4hk3	0	\N
+8	49	s2Bz9LiSV9gATOG0JHUKTXBrWxa2	0	\N
+9	50	9AcUMUvn4ra4iKS0ZTgxMB68EHy2	0	\N
+11	52	Jj60MEpht3VlN15iyq1W9PdPTTf2	0	\N
+46	87	3YtW0L60kEP1LIE5bjESuQo2tpm2	0	tCoqsAxUKIQkEPvOrOkFzQtHQhavtl
+31	72	J13XbhafiaPqWA3lGZ0xFLC4A4s2	988	WrFwUednJiZeTUEMmJLpmsMiWLoMty
+20	61	oW0hMmiqIygiTFn3URRRn1eBAal1	0	\N
+16	57	G1wcmiK0tnVp74ao0wVkllYMX6i1	0	\N
+25	66	pED7EzOKWiXdW58Xgw3fP2PVKrG2	0	\N
+10	51	1UmqPwfUNRQMRjGeRwyzpnnBKCG2	0	bfdCzxpjuvTTVUFzQPJJpkgwyONAmv
+23	64	0xRKpFPAZZUKazxw4p7lvAyl7ml1	0	\N
+13	54	r3I6vMDvzwUQlLQXBy5qZaILe2x1	0	hPIMbTzUBfvdyYIPZivjcvYGbSoQfm
+14	55	UHy01kUuTyakxzHdISnMniGqgO42	333	RLYdCJcgwyemJevptxKplLzHdQlpIe
+24	65	N1TKp9LM3CO2TdJCtcjTTq4MfhA3	0	\N
+43	84	j8n0JQ7PP5UE5PPmDeD1OEdTs513	0	BJhqJGjtHkrPGpteOYPXJYlQEsruHz
+27	68	4VBSGbwPmlYfNOYLdOvfCe5Y5QX2	0	\N
+17	58	5jOIP52wlxVLINT4kLCPU7rUAjL2	0	\N
+33	74	JJxrhyWsVwPDAvD7K24ijftTejB3	0	lwoHTbAeKevkyKymLiynaASzyJSwTH
+40	81	cVl2nwfaIcgJuwI9A149JPOCksR2	998	nVjZzRnUEhUOeoUCbXGgncoePzZLcV
+19	60	JqSMSgsxf6Y6U21sSk4Wt8N0K7M2	0	\N
+21	62	GWtIYjBKZrVKe9HaPFWVvKflIV52	0	lHTPBntMtypOeRgIhViGxbvfgkSwqi
+22	63	1brkj0OTtWVHIXMBtwERCTN4c0p2	0	\N
+34	75	nUz6UeNG2yNSXwY7kZnxCzf74mN2	0	\N
+38	79	GXQ1StLO2eOVgiU6ydvpOicJPd43	0	MxyxdnrJAykQNSAInnUppWVuiSMbCO
+29	70	eMgvkn2NjPVAheRYvCJmNreDnwJ3	964	ZiIIZSHjPDQjzXQdMPzLBMPnoYuZuD
+26	67	ikHBOcS14OTXtG5tYE84t9ocl6Y2	0	jHPZbxUsodVkWMALqcoZAGBHyriSKc
+42	83	okCxHcwvKQUGhP43mrWPXb92eqk2	0	vmJQSoOaiTMWVagpXtunqkvkHOxuoi
+39	80	enV8LQ0FkUNq2MDjN0x5mIyJac62	962	cbiPMCGjJTbgplVfKtFBxaBAtSbAqm
+47	88	mjthC37rISaUeBJ4kmRhiUDqdL23	0	CGsXIDVRvgKgHfvTHxmHrfZFnezBgA
+44	85	Fv8o5WlJbVVWSMdQQsn3ZYqo3Gl2	0	HTIVSIGohmRMHSwIgEvLhiTKTQAyoO
+18	59	tEuLkh4mezf6qzLiHe0VDmZPMue2	0	pvXLbMhVlxeQLagYVwtFMQjuzLFsoB
+35	76	njR9CDxjJQarVV0zv8gOs1mc1uE2	961	WqdnpEgteYhCqlIfNEyvVJyFYQqoCz
+15	56	90WBr0AispajYCJ5rsX0Uhqil4i2	0	BYrEBvdDVwYHeFVwmfdHmHQHgTYbMs
+45	86	Rk3TLDXALqXzCeIElNCYck9p74D2	996	WjNbhpbYODXznMdZOUUUSBabCZNcgr
+12	53	bJWHPO0VMXUH81MCdIfyauTSTmG2	123	OWDMhuhWWhVTXktsyYuelIstiJALei
+41	82	nZlE5JGrLHM4ngE28q2jl0DkreV2	0	RxKJgywKJwbjhrOidTsfBKCwgYXouJ
+28	69	1leIb5X2QeWbvFyfAkIXk8a6ucy2	965	aPbwEfLvbnXQTsOsPhitYECVcsbKph
+32	73	ZVqgTJGHmNXkKRanW12K60QxAYw2	959	sHCFcasaiGXlDzOQkYvlPTmvnonoIB
+30	71	NeCkK0fsIXbUxXz6JGHuhkyVEc73	853	oTrrVPmyvgqaywBdvINRDlFOxnuFbd
+37	78	ttkWXq8au2MX4jnu9DdYOK1pfek2	0	DFluWMOiJFpkBCrWShlHCbiCYCfLSO
+36	77	8X82OHgxU1XyOHEHSwnR6zbWw9v2	955	nFSOOOQiecFUGYOkpkVCOtaDMcDGok
+\.
+
+
+--
+-- Name: cards_tokens_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.cards_tokens_id_seq', 11, true);
+
+
+--
+-- Name: payments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.payments_id_seq', 40, true);
+
+
+--
+-- Name: super_link_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.super_link_id_seq', 471, true);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.users_id_seq', 47, true);
+
+
+--
+-- Name: hdb_action_log hdb_action_log_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_action_log
+    ADD CONSTRAINT hdb_action_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_cron_event_invocation_logs hdb_cron_event_invocation_logs_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_event_invocation_logs
+    ADD CONSTRAINT hdb_cron_event_invocation_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_cron_events hdb_cron_events_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_events
+    ADD CONSTRAINT hdb_cron_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_metadata hdb_metadata_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_metadata
+    ADD CONSTRAINT hdb_metadata_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_metadata hdb_metadata_resource_version_key; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_metadata
+    ADD CONSTRAINT hdb_metadata_resource_version_key UNIQUE (resource_version);
+
+
+--
+-- Name: hdb_scheduled_event_invocation_logs hdb_scheduled_event_invocation_logs_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_event_invocation_logs
+    ADD CONSTRAINT hdb_scheduled_event_invocation_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_scheduled_events hdb_scheduled_events_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_events
+    ADD CONSTRAINT hdb_scheduled_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_schema_notifications hdb_schema_notifications_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_schema_notifications
+    ADD CONSTRAINT hdb_schema_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_version hdb_version_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_version
+    ADD CONSTRAINT hdb_version_pkey PRIMARY KEY (hasura_uuid);
+
+
+--
+-- Name: cards_tokens cards_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cards_tokens
+    ADD CONSTRAINT cards_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: users pkey_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT pkey_id PRIMARY KEY (id);
+
+
+--
+-- Name: payments pkeyid; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.payments
+    ADD CONSTRAINT pkeyid PRIMARY KEY (id);
+
+
+--
+-- Name: super_links super_link_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.super_links
+    ADD CONSTRAINT super_link_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: users u_fire_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT u_fire_id UNIQUE (fire_id);
+
+
+--
+-- Name: hdb_cron_event_invocation_event_id; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_cron_event_invocation_event_id ON hdb_catalog.hdb_cron_event_invocation_logs USING btree (event_id);
+
+
+--
+-- Name: hdb_cron_event_status; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_cron_event_status ON hdb_catalog.hdb_cron_events USING btree (status);
+
+
+--
+-- Name: hdb_cron_events_unique_scheduled; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE UNIQUE INDEX hdb_cron_events_unique_scheduled ON hdb_catalog.hdb_cron_events USING btree (trigger_name, scheduled_time) WHERE (status = 'scheduled'::text);
+
+
+--
+-- Name: hdb_scheduled_event_status; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_scheduled_event_status ON hdb_catalog.hdb_scheduled_events USING btree (status);
+
+
+--
+-- Name: hdb_version_one_row; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE UNIQUE INDEX hdb_version_one_row ON hdb_catalog.hdb_version USING btree (((version IS NOT NULL)));
+
+
+--
+-- Name: fki_fki_user_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fki_user_id ON public.cards_tokens USING btree (user_id);
+
+
+--
+-- Name: hdb_cron_event_invocation_logs hdb_cron_event_invocation_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_event_invocation_logs
+    ADD CONSTRAINT hdb_cron_event_invocation_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES hdb_catalog.hdb_cron_events(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: hdb_scheduled_event_invocation_logs hdb_scheduled_event_invocation_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_event_invocation_logs
+    ADD CONSTRAINT hdb_scheduled_event_invocation_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES hdb_catalog.hdb_scheduled_events(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cards_tokens fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cards_tokens
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+
+
+--
+-- PostgreSQL database dump complete
+--
+

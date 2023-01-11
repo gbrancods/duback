@@ -2,11 +2,10 @@ package drive
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
-	"os"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
@@ -14,17 +13,8 @@ import (
 func CreateFile(content io.Reader, name, mimeType, parentId string) (*drive.File, error) {
 
 	ctx := context.Background()
-	b, err := os.ReadFile("credentials.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
 
-	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(config)
+	client := GetClient()
 
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
@@ -36,7 +26,16 @@ func CreateFile(content io.Reader, name, mimeType, parentId string) (*drive.File
 		Name:     name,
 		Parents:  []string{parentId},
 	}
-	file, err := srv.Files.Create(f).Media(content).Do()
+
+	var file *drive.File
+
+	if mimeType == "text/plain" {
+		file, err = srv.Files.Create(f).Media(content).Do()
+	} else if mimeType == "inode/directory" {
+		file, err = srv.Files.Create(f).Do()
+	} else {
+		fmt.Println("Inválid mime type")
+	}
 
 	if err != nil {
 		log.Println("Could not create file: " + err.Error())

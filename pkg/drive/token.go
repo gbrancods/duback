@@ -9,10 +9,23 @@ import (
 	"os"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/drive/v3"
 )
 
 // Recupera o token, salva o token, e retorna o cliente gerado
-func getClient(config *oauth2.Config) *http.Client {
+func GetClient() *http.Client {
+
+	b, err := os.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved token.json.
+	config, err := google.ConfigFromJSON(b, drive.DriveScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
 
 	//O arquivo token.json armazena os tokens de acesso e atualização do usuário e é
 	//criado automaticamente quando o fluxo de autorização é concluído pela primeira vez.

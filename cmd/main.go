@@ -11,7 +11,7 @@ func main() {
 	drive.CredenGen()
 
 	// Create token
-	drive.TokenGen()
+	drive.GetClient()
 
 	// Start backup rotine
 	rotines.BackupRotine()

@@ -1,21 +1,21 @@
 package app
 
 import (
+	"bytes"
 	"duback/pkg/drive"
 	"fmt"
-	"io"
-	"io/ioutil"
+	"os"
 )
 
 func App() (err error) {
 
+	// TODO: Obter id da pasta automaticamente
+
 	// Backup folder id
 	fId := "1BuuDMi4Z9YrelWffjAqvAPOTSZisCsA3"
 	// MimeType folder
-	// fType := "application/vnd.google-apps.folder"
-	// fType := "inode/directory"
+	//fType := "inode/directory"
 	// MimeType text
-	// tType := "application/vnd.google-apps.file"
 	tType := "text/plain"
 
 	lf, err := getLocalFiles()
@@ -38,23 +38,21 @@ func App() (err error) {
 		}
 
 		// Case not file exist
-		if e == false {
+		if !e {
 
 			//File Concat
 			fCon := fmt.Sprintf("./backups/%s/backup-dbchat-%s", f, f)
 
 			//Get the content file
-			cf, err := ioutil.ReadFile(fCon)
+			cf, err := os.ReadFile(fCon)
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			rcf, err := io.Reader(cf)
-			if err != nil {
-				fmt.Println(err)
-			}
+			// Convert byte slice to io.Reader
+			cr := bytes.NewReader(cf)
 
-			_, err = drive.CreateFile(rcf, f, tType, fId)
+			_, err = drive.CreateFile(cr, f, tType, fId)
 			if err != nil {
 				fmt.Println(err)
 			}

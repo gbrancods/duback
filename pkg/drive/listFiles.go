@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
@@ -15,18 +13,8 @@ import (
 func GDriveFiles() (df, di []string) {
 
 	ctx := context.Background()
-	b, err := os.ReadFile("credentials.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
 
-	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-
-	client := getClient(config)
+	client := GetClient()
 
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
