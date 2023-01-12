@@ -31,7 +31,7 @@ func CreateFile(content io.Reader, name, mimeType, parentId string) (*drive.File
 
 	if mimeType == "text/plain" {
 		file, err = srv.Files.Create(f).Media(content).Do()
-	} else if mimeType == "inode/directory" {
+	} else if mimeType == "application/vnd.google-apps.folder" {
 		file, err = srv.Files.Create(f).Do()
 	} else {
 		fmt.Println("Inválid mime type")
