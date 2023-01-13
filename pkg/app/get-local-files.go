@@ -4,9 +4,9 @@ import (
 	"os"
 )
 
-func getLocalFiles() (lf []string, err error) {
+func getLocalFiles(path string) (lf []string, err error) {
 
-	f, err := os.Open("./backups")
+	f, err := os.Open(path)
 	if err != nil {
 		return
 	}

@@ -3,33 +3,33 @@ package app
 import (
 	"duback/pkg/drive"
 	"fmt"
+	"os"
 )
 
 func App() (err error) {
 
-	// TODO: Obter id da pasta automaticamente
-
 	// Backup folder id
-	fId := "1BuuDMi4Z9YrelWffjAqvAPOTSZisCsA3"
+	fid := drive.GetBackupFolder()
 
-	// MimeType folder
-	fType := "application/vnd.google-apps.folder"
-
-	// MimeType text
-	//tType := "text/plain"
-
-	lf, err := getLocalFiles()
+	// Get SIC files
+	slf, err := getLocalFiles(SicF)
 	if err != nil {
 		return
 	}
 
+	// Get dev-env folders
+	// dlf, err := getLocalFiles(DevF)
+	// if err != nil {
+	// 	return
+	// }
+
 	df, _ := drive.GDriveFiles()
 
 	// Walks local folders array
-	for _, f := range lf {
+	// dev_env
+	for _, f := range slf {
 
 		e := false
-
 		// Verify if file exist
 		for _, d := range df {
 			if f == d {
@@ -41,7 +41,7 @@ func App() (err error) {
 		if !e {
 
 			//Create folder
-			ff, err = drive.CreateFile(nil, f, fType, fId)
+			ff, err := drive.CreateFile(nil, f, drive.FType, fid)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -61,7 +61,7 @@ func App() (err error) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			
+
 			//Create file
 			ff, err = drive.CreateFile(nil, f, fType, ff.Id)
 			if err != nil {

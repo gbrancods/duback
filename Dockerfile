@@ -19,6 +19,9 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7FCC7D46ACCC4CF8
 RUN apt update -y
 RUN apt install postgresql-client -y
 
+# Install firebird client
+RUN apt install firebird3.0-utils
+
 WORKDIR /app
 
 # Copy app bin
