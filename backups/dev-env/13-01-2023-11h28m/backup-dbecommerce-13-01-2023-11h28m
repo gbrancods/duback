@@ -1,0 +1,1358 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 15.1 (Debian 15.1-1.pgdg110+1)
+-- Dumped by pg_dump version 15.1 (Ubuntu 15.1-1.pgdg22.10+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: hdb_catalog; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+CREATE SCHEMA hdb_catalog;
+
+
+ALTER SCHEMA hdb_catalog OWNER TO postgres;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+-- *not* creating schema, since initdb creates it
+
+
+ALTER SCHEMA public OWNER TO postgres;
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON SCHEMA public IS '';
+
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
+
+
+--
+-- Name: gen_hasura_uuid(); Type: FUNCTION; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE FUNCTION hdb_catalog.gen_hasura_uuid() RETURNS uuid
+    LANGUAGE sql
+    AS $$select gen_random_uuid()$$;
+
+
+ALTER FUNCTION hdb_catalog.gen_hasura_uuid() OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: hdb_action_log; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_action_log (
+    id uuid DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    action_name text,
+    input_payload jsonb NOT NULL,
+    request_headers jsonb NOT NULL,
+    session_variables jsonb NOT NULL,
+    response_payload jsonb,
+    errors jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    response_received_at timestamp with time zone,
+    status text NOT NULL,
+    CONSTRAINT hdb_action_log_status_check CHECK ((status = ANY (ARRAY['created'::text, 'processing'::text, 'completed'::text, 'error'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_action_log OWNER TO postgres;
+
+--
+-- Name: hdb_cron_event_invocation_logs; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_cron_event_invocation_logs (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    event_id text,
+    status integer,
+    request json,
+    response json,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE hdb_catalog.hdb_cron_event_invocation_logs OWNER TO postgres;
+
+--
+-- Name: hdb_cron_events; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_cron_events (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    trigger_name text NOT NULL,
+    scheduled_time timestamp with time zone NOT NULL,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    tries integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    next_retry_at timestamp with time zone,
+    CONSTRAINT valid_status CHECK ((status = ANY (ARRAY['scheduled'::text, 'locked'::text, 'delivered'::text, 'error'::text, 'dead'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_cron_events OWNER TO postgres;
+
+--
+-- Name: hdb_metadata; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_metadata (
+    id integer NOT NULL,
+    metadata json NOT NULL,
+    resource_version integer DEFAULT 1 NOT NULL
+);
+
+
+ALTER TABLE hdb_catalog.hdb_metadata OWNER TO postgres;
+
+--
+-- Name: hdb_scheduled_event_invocation_logs; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_scheduled_event_invocation_logs (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    event_id text,
+    status integer,
+    request json,
+    response json,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE hdb_catalog.hdb_scheduled_event_invocation_logs OWNER TO postgres;
+
+--
+-- Name: hdb_scheduled_events; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_scheduled_events (
+    id text DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    webhook_conf json NOT NULL,
+    scheduled_time timestamp with time zone NOT NULL,
+    retry_conf json,
+    payload json,
+    header_conf json,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    tries integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    next_retry_at timestamp with time zone,
+    comment text,
+    CONSTRAINT valid_status CHECK ((status = ANY (ARRAY['scheduled'::text, 'locked'::text, 'delivered'::text, 'error'::text, 'dead'::text])))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_scheduled_events OWNER TO postgres;
+
+--
+-- Name: hdb_schema_notifications; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_schema_notifications (
+    id integer NOT NULL,
+    notification json NOT NULL,
+    resource_version integer DEFAULT 1 NOT NULL,
+    instance_id uuid NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT hdb_schema_notifications_id_check CHECK ((id = 1))
+);
+
+
+ALTER TABLE hdb_catalog.hdb_schema_notifications OWNER TO postgres;
+
+--
+-- Name: hdb_version; Type: TABLE; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE TABLE hdb_catalog.hdb_version (
+    hasura_uuid uuid DEFAULT hdb_catalog.gen_hasura_uuid() NOT NULL,
+    version text NOT NULL,
+    upgraded_on timestamp with time zone NOT NULL,
+    cli_state jsonb DEFAULT '{}'::jsonb NOT NULL,
+    console_state jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+ALTER TABLE hdb_catalog.hdb_version OWNER TO postgres;
+
+--
+-- Name: addresses; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.addresses (
+    street character varying(50) NOT NULL,
+    number integer,
+    complement character varying(50),
+    zipcode integer,
+    city character varying(50) NOT NULL,
+    state character varying(2) NOT NULL,
+    address_type integer NOT NULL,
+    user_id integer NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.addresses OWNER TO postgres;
+
+--
+-- Name: addresses_nid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.addresses_nid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.addresses_nid_seq OWNER TO postgres;
+
+--
+-- Name: addresses_nid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.addresses_nid_seq OWNED BY public.addresses.id;
+
+
+--
+-- Name: budgets; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.budgets (
+    user_id integer NOT NULL,
+    status integer NOT NULL,
+    id integer NOT NULL,
+    created_at integer NOT NULL,
+    updated_at integer,
+    seller_id integer
+);
+
+
+ALTER TABLE public.budgets OWNER TO postgres;
+
+--
+-- Name: budgets_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.budgets_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.budgets_id_seq OWNER TO postgres;
+
+--
+-- Name: budgets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.budgets_id_seq OWNED BY public.budgets.id;
+
+
+--
+-- Name: budgets_products; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.budgets_products (
+    id integer NOT NULL,
+    budget_id integer NOT NULL,
+    product_id integer NOT NULL,
+    product_quantity integer NOT NULL
+);
+
+
+ALTER TABLE public.budgets_products OWNER TO postgres;
+
+--
+-- Name: budgets_products_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.budgets_products_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.budgets_products_id_seq OWNER TO postgres;
+
+--
+-- Name: budgets_products_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.budgets_products_id_seq OWNED BY public.budgets_products.id;
+
+
+--
+-- Name: cart_histories; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.cart_histories (
+    user_id integer NOT NULL,
+    id integer NOT NULL,
+    product_id integer NOT NULL,
+    product_quantity integer NOT NULL,
+    date integer NOT NULL,
+    finalization_status integer NOT NULL
+);
+
+
+ALTER TABLE public.cart_histories OWNER TO postgres;
+
+--
+-- Name: cart_history_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.cart_history_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.cart_history_id_seq OWNER TO postgres;
+
+--
+-- Name: cart_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.cart_history_id_seq OWNED BY public.cart_histories.id;
+
+
+--
+-- Name: carts; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.carts (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    product_id integer NOT NULL,
+    product_quantity integer NOT NULL
+);
+
+
+ALTER TABLE public.carts OWNER TO postgres;
+
+--
+-- Name: carts_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.carts_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.carts_id_seq OWNER TO postgres;
+
+--
+-- Name: carts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.carts_id_seq OWNED BY public.carts.id;
+
+
+--
+-- Name: favorites_products; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.favorites_products (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    product_id integer NOT NULL
+);
+
+
+ALTER TABLE public.favorites_products OWNER TO postgres;
+
+--
+-- Name: favorites_products_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.favorites_products_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.favorites_products_id_seq OWNER TO postgres;
+
+--
+-- Name: favorites_products_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.favorites_products_id_seq OWNED BY public.favorites_products.id;
+
+
+--
+-- Name: hot_products; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.hot_products (
+    product_id integer NOT NULL,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.hot_products OWNER TO postgres;
+
+--
+-- Name: hot_products_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.hot_products_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.hot_products_id_seq OWNER TO postgres;
+
+--
+-- Name: hot_products_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.hot_products_id_seq OWNED BY public.hot_products.id;
+
+
+--
+-- Name: products; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.products (
+    category integer NOT NULL,
+    name character varying(30) NOT NULL,
+    description character varying(100) NOT NULL,
+    height integer NOT NULL,
+    width integer,
+    thickness real,
+    length integer NOT NULL,
+    fence_wire integer,
+    fence_mesh real,
+    tube_shape integer,
+    tube_gauge integer,
+    id integer NOT NULL,
+    description_images character varying(100),
+    erp_id integer,
+    profile_image character varying(300)
+);
+
+
+ALTER TABLE public.products OWNER TO postgres;
+
+--
+-- Name: products_pid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.products_pid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.products_pid_seq OWNER TO postgres;
+
+--
+-- Name: products_pid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.products_pid_seq OWNED BY public.products.id;
+
+
+--
+-- Name: regions; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.regions (
+    user_id integer,
+    name character varying(50) NOT NULL,
+    description character varying(200),
+    state_id integer,
+    id integer NOT NULL
+);
+
+
+ALTER TABLE public.regions OWNER TO postgres;
+
+--
+-- Name: regions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.regions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.regions_id_seq OWNER TO postgres;
+
+--
+-- Name: regions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.regions_id_seq OWNED BY public.regions.id;
+
+
+--
+-- Name: states; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.states (
+    id integer NOT NULL,
+    is_serviceable boolean NOT NULL,
+    uf character varying(2)
+);
+
+
+ALTER TABLE public.states OWNER TO postgres;
+
+--
+-- Name: state_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.state_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.state_id_seq OWNER TO postgres;
+
+--
+-- Name: state_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.state_id_seq OWNED BY public.states.id;
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    fire_id character varying(50) NOT NULL,
+    cpf character varying(11),
+    phone integer,
+    is_connected boolean,
+    email character varying(50) NOT NULL,
+    name character varying(100),
+    last_seen integer NOT NULL,
+    created_at integer NOT NULL,
+    deleted_at integer,
+    erp_id integer,
+    id integer NOT NULL,
+    role integer,
+    avatar character varying(1000)
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: users_nid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.users_nid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.users_nid_seq OWNER TO postgres;
+
+--
+-- Name: users_nid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.users_nid_seq OWNED BY public.users.id;
+
+
+--
+-- Name: addresses id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.addresses ALTER COLUMN id SET DEFAULT nextval('public.addresses_nid_seq'::regclass);
+
+
+--
+-- Name: budgets id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets ALTER COLUMN id SET DEFAULT nextval('public.budgets_id_seq'::regclass);
+
+
+--
+-- Name: budgets_products id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets_products ALTER COLUMN id SET DEFAULT nextval('public.budgets_products_id_seq'::regclass);
+
+
+--
+-- Name: cart_histories id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cart_histories ALTER COLUMN id SET DEFAULT nextval('public.cart_history_id_seq'::regclass);
+
+
+--
+-- Name: carts id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.carts ALTER COLUMN id SET DEFAULT nextval('public.carts_id_seq'::regclass);
+
+
+--
+-- Name: favorites_products id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.favorites_products ALTER COLUMN id SET DEFAULT nextval('public.favorites_products_id_seq'::regclass);
+
+
+--
+-- Name: hot_products id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hot_products ALTER COLUMN id SET DEFAULT nextval('public.hot_products_id_seq'::regclass);
+
+
+--
+-- Name: products id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.products ALTER COLUMN id SET DEFAULT nextval('public.products_pid_seq'::regclass);
+
+
+--
+-- Name: regions id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.regions ALTER COLUMN id SET DEFAULT nextval('public.regions_id_seq'::regclass);
+
+
+--
+-- Name: states id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.states ALTER COLUMN id SET DEFAULT nextval('public.state_id_seq'::regclass);
+
+
+--
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_nid_seq'::regclass);
+
+
+--
+-- Data for Name: hdb_action_log; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_action_log (id, action_name, input_payload, request_headers, session_variables, response_payload, errors, created_at, response_received_at, status) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_cron_event_invocation_logs; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_cron_event_invocation_logs (id, event_id, status, request, response, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_cron_events; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_cron_events (id, trigger_name, scheduled_time, status, tries, created_at, next_retry_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_metadata; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_metadata (id, metadata, resource_version) FROM stdin;
+1	{"sources":[{"kind":"postgres","name":"dbecommerce","tables":[{"object_relationships":[{"using":{"foreign_key_constraint_on":"fk_user_id"},"name":"user"}],"table":{"schema":"public","name":"address"}},{"table":{"schema":"public","name":"budgets"}},{"object_relationships":[{"using":{"foreign_key_constraint_on":"fk_user_id"},"name":"user"}],"table":{"schema":"public","name":"cart_history"}},{"table":{"schema":"public","name":"users"},"array_relationships":[{"using":{"foreign_key_constraint_on":{"column":"fk_user_id","table":{"schema":"public","name":"address"}}},"name":"addresses"},{"using":{"foreign_key_constraint_on":{"column":"fk_user_id","table":{"schema":"public","name":"cart_history"}}},"name":"cart_histories"}]}],"configuration":{"connection_info":{"use_prepared_statements":false,"database_url":{"from_env":"PG_DATABASE_URL"},"isolation_level":"read-committed"}}}],"version":3}	4
+\.
+
+
+--
+-- Data for Name: hdb_scheduled_event_invocation_logs; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_scheduled_event_invocation_logs (id, event_id, status, request, response, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_scheduled_events; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_scheduled_events (id, webhook_conf, scheduled_time, retry_conf, payload, header_conf, status, tries, created_at, next_retry_at, comment) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hdb_schema_notifications; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_schema_notifications (id, notification, resource_version, instance_id, updated_at) FROM stdin;
+1	{"metadata":false,"remote_schemas":[],"sources":[]}	4	8f1c42ea-3d7e-4df6-b098-32917be85d3e	2022-02-18 19:28:10.754106+00
+\.
+
+
+--
+-- Data for Name: hdb_version; Type: TABLE DATA; Schema: hdb_catalog; Owner: postgres
+--
+
+COPY hdb_catalog.hdb_version (hasura_uuid, version, upgraded_on, cli_state, console_state) FROM stdin;
+33b37488-b1e5-43d2-a9f7-4008ed30d670	47	2022-02-17 11:43:50.906603+00	{}	{"console_notifications": {"admin": {"date": "2022-02-18T19:25:39.784Z", "read": "default", "showBadge": false}}, "telemetryNotificationShown": true}
+\.
+
+
+--
+-- Data for Name: addresses; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.addresses (street, number, complement, zipcode, city, state, address_type, user_id, id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: budgets; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.budgets (user_id, status, id, created_at, updated_at, seller_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: budgets_products; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.budgets_products (id, budget_id, product_id, product_quantity) FROM stdin;
+\.
+
+
+--
+-- Data for Name: cart_histories; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.cart_histories (user_id, id, product_id, product_quantity, date, finalization_status) FROM stdin;
+\.
+
+
+--
+-- Data for Name: carts; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.carts (id, user_id, product_id, product_quantity) FROM stdin;
+\.
+
+
+--
+-- Data for Name: favorites_products; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.favorites_products (id, user_id, product_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: hot_products; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.hot_products (product_id, id) FROM stdin;
+4	3
+\.
+
+
+--
+-- Data for Name: products; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.products (category, name, description, height, width, thickness, length, fence_wire, fence_mesh, tube_shape, tube_gauge, id, description_images, erp_id, profile_image) FROM stdin;
+2	Tubo 15 x 15	Tubo de 15mm por 15mm	15	15	0.7	6000	0	0	2	0	4		0	products/profile_images
+2	Tubo 20 x 20	Tubo de 15mm por 15mm	15	15	0.7	6000	0	0	2	0	5		0	products/profile_images
+1	A	A	1	1	-1	1	-1	0	-1	-1	13		0	products/profile_images
+1	c	c	3	3	-1	3	-1	0	-1	-1	15		0	products/profile_images
+1	a	a	1	1	-1	1	-1	0	-1	-1	16		0	products/profile_products
+1	b	b	2	2	-1	2	-1	0	-1	-1	17		0	products/profile_products
+1	c	c	1	1	-1	1	-1	0	-1	-1	18		0	products/profile_products
+1	d	d	1	1	-1	1	-1	0	-1	-1	19		0	products/profile_products
+1	f	f	1	1	-1	1	-1	0	-1	-1	20		0	products/profile_products
+1	g	g	1	1	-1	1	-1	0	-1	-1	21		0	products/profile_products
+1	q	q	1	1	-1	1	-1	0	-1	-1	22		0	products/profile_products
+1	z	z	1	1	-1	-1	-1	0	-1	-1	23		0	products/profile_products
+1	a	a	1	1	-1	1	-1	0	-1	-1	24		0	products/profile_products
+\.
+
+
+--
+-- Data for Name: regions; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.regions (user_id, name, description, state_id, id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: states; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.states (id, is_serviceable, uf) FROM stdin;
+2	f	\N
+6	f	\N
+7	f	\N
+8	f	\N
+9	f	\N
+10	f	\N
+14	f	\N
+17	t	\N
+18	t	\N
+19	f	\N
+20	f	\N
+21	f	\N
+22	f	\N
+23	f	\N
+24	f	\N
+25	f	\N
+26	f	\N
+27	f	\N
+28	f	\N
+29	f	\N
+30	f	\N
+31	f	\N
+32	t	\N
+33	f	\N
+34	f	\N
+11	t	\N
+13	t	\N
+\.
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.users (fire_id, cpf, phone, is_connected, email, name, last_seen, created_at, deleted_at, erp_id, id, role, avatar) FROM stdin;
+ikHBOcS14OTXtG5tYE84t9ocl6Y2		0	f	desenvolvimento@coferpol.com.br	Desenvolvimento	1662732388	1662732388	0	758	67	3	
+3YtW0L60kEP1LIE5bjESuQo2tpm2		0	f	antonio@coferpol.com.br	Antonio Pedro	1666976260	1666976260	0	576	87	2	
+Rk3TLDXALqXzCeIElNCYck9p74D2		0	f	vendasmg3@coferpol.com.br	Adriano Barbosa	1666964850	1666964850	0	996	86	2	
+1leIb5X2QeWbvFyfAkIXk8a6ucy2		0	f	vendasms2@coferpol.com.br	Francisco Cardoso	1663000862	1663000862	0	965	69	2	
+eMgvkn2NjPVAheRYvCJmNreDnwJ3		0	f	vendasmg4@coferpol.com.br	Fernando Almeida	1663011037	1663011037	0	964	70	2	
+NeCkK0fsIXbUxXz6JGHuhkyVEc73		0	f	vendasms4@coferpol.com.br	Nelson Massau	1663151480	1663151480	0	853	71	2	
+1UmqPwfUNRQMRjGeRwyzpnnBKCG2		0	f	vinicius0404@gmail.com	Vinicius Pacio	1651501222	1651501222	1663244028	0	51	3	https://lh3.googleusercontent.com/a/AATXAJwzKmt8mcVROGl_Wq4MKrHp1_qF-h8LkfcvTAKSvg=s96-c
+432h4bh32kb4hk3		1798989898	f	teste@mail.com	nickname	1651262199	1651262199	\N	0	48	1	dasdads
+s2Bz9LiSV9gATOG0JHUKTXBrWxa2		0	f	gbrancods@gmail.com		1651500607	1651500607	1651501100	0	49	1	
+9AcUMUvn4ra4iKS0ZTgxMB68EHy2		0	f	vinicius0404@gmail.com	Vinicius Pacio	1651501181	1651501181	1651501199	0	50	1	https://lh3.googleusercontent.com/a/AATXAJwzKmt8mcVROGl_Wq4MKrHp1_qF-h8LkfcvTAKSvg=s96-c
+Jj60MEpht3VlN15iyq1W9PdPTTf2		0	f	testenovolink@teste.com		1652385758	1652385758	1652386035	0	52	1	
+bJWHPO0VMXUH81MCdIfyauTSTmG2		0	f	danilo@coferpol.com.br	Danilo Polaquini	1652698138	1652698138	0	0	53	3	https://lh3.googleusercontent.com/a-/AOh14Gh7Vt1NYR8lO2YjN_R3hA_XX0cBPZNwMCZejEI3ljTJkbeNAs1tp1HtIlxz6S9HRz33IgnuCqQVfaIEfLqleNOcXotldJACn5yz16oxO2OixHEMnq-AS3mfS3U8IT4UD7e-MgyEaAqjMzHxbQ3Yza2y9JibV8rIcfuxEH52hhagEoCRdxr2Atm5pzupxtDRdLvxYz4b25-BvIvMnzY-xL0cwRcqvjG6c6z3B0UQiU8sIeetwn0p5Bd7KmI1EscfS7e8fx2BHP7kEEABcLv8oB7YnOwEZtYacWFqRW8tIth_c6TFEC_hfQ9xMmgef5GmpehP5DPIikRtn4DwR5XF2le1zGOL2XWh4Jf9XJUFQ0e6_jBH8Qq5d_4uzKfkKtV_cLS6ygiyPPH9hEI108Mrc6a9xrd-nNpSApz1Kd-86LcLSw1n-pOMzRBeJeEi9H97b0mfD0XolCrEdtVboSYrw0RhkSPKC26sl4L0uWDqKg90w02rtVUGo2TIfgKX_K2IUFXJZ07WCWzwAYFvmipL7tmPMQkWBBcFw5Fp5qyX0oEdMAHFyLG2PS6aEAtuOakehfPqxTOb4pyx7iPjTrqUntAAfZ_N55V3AEs9mN74WSz3MvON8swIxzx3eb3NKUCd8zf9jbWonCGUvzUA6Xvrt7PDI3gjuR8UyELqXNUGIcagvJlim3XJPLf7hamufP9Iw06Jk6N_q-f6fFG-H0-mS7Ss6imY7vAlvke5XnieOgfu7LaxpdWSKOXmdW-0sEs3nFuamA=s96-c
+UHy01kUuTyakxzHdISnMniGqgO42		0	f	gbrancods@gmail.com	gabriel branco	1652784361	1652784361	1656598117	0	55	1	https://lh3.googleusercontent.com/a/AATXAJzdgWTrjTYHz6h76ap93E5biRbYQZwTB_n6_Hld=s96-c
+G1wcmiK0tnVp74ao0wVkllYMX6i1		0	f	vine.0404@gmail.com	Vinicius	1654520215	1654520215	0	0	57	1	https://lh3.googleusercontent.com/a/AATXAJz59hDzD_nHlnMRKnZ6DJi5Q1YkH_6Bdt3EPYOA=s96-c
+90WBr0AispajYCJ5rsX0Uhqil4i2		0	f	ti@coferpol.com.br	Fred Munhoz	1654517314	1654517314	0	0	56	3	https://lh3.googleusercontent.com/a-/AOh14GgIBaCict478OPd3qGXijk7LYmKfYwF-blSN7Br=s96-c
+ZVqgTJGHmNXkKRanW12K60QxAYw2		0	f	vendasmg1@coferpol.com.br	Pedro Henrique	1663172461	1663172461	0	959	73	2	
+8X82OHgxU1XyOHEHSwnR6zbWw9v2		0	f	vendas8@coferpol.com.br	José Júnior	1663678116	1663678116	0	955	77	2	
+nUz6UeNG2yNSXwY7kZnxCzf74mN2		0	f	faturamentomg2@coferpol.com.br	Heitor Lima	1663359526	1663359526	0	0	75	1	
+njR9CDxjJQarVV0zv8gOs1mc1uE2		0	f	vendasms6@coferpol.com.br	Ludimila Fragoso	1663589140	1663589140	0	961	76	2	
+J13XbhafiaPqWA3lGZ0xFLC4A4s2		0	f	representante@coferpol.com.br	Daniel Matheus	1663156280	1663156280	0	988	72	2	
+5jOIP52wlxVLINT4kLCPU7rUAjL2		0	f	gbrancods@gmail.com		1656938122	1656938122	0	0	58	1	
+GXQ1StLO2eOVgiU6ydvpOicJPd43		0	f	fernando@coferpol.com.br	Fernando Curti	1663953248	1663953248	0	0	79	3	
+GWtIYjBKZrVKe9HaPFWVvKflIV52		0	f	supcoferpol@gmail.com	Natanael Santos	1662641270	1662641270	0	0	62	3	https://lh3.googleusercontent.com/a-/AFdZucr1_VHk9CG2bH6msAILdNpGfeEy5I7m8dPj-xdk=s96-c
+enV8LQ0FkUNq2MDjN0x5mIyJac62		0	f	vendasms5@coferpol.com.br	Michaelli Ferelli	1663954422	1663954422	0	962	80	2	
+cVl2nwfaIcgJuwI9A149JPOCksR2		0	f	vendasms7@coferpol.com.br	Mateus de Oliveira	1663961046	1663961046	0	998	81	2	
+nZlE5JGrLHM4ngE28q2jl0DkreV2		0	f	cadastro@coferpol.com.br	Brenda Souza	1664280052	1664280052	0	0	82	4	
+ttkWXq8au2MX4jnu9DdYOK1pfek2		0	f	vinicius0404@gmail.com	Vinicius Pacio	1663759576	1663759576	0	0	78	3	https://lh3.googleusercontent.com/a/ALm5wu3hwC8yg3pqWIYdgk3qmEEmNjWehOIwCKA0yCslig=s96-c
+okCxHcwvKQUGhP43mrWPXb92eqk2		0	f	vendasms3@coferpol.com.br	Carla França	1664814294	1664814294	0	878	83	2	
+j8n0JQ7PP5UE5PPmDeD1OEdTs513		0	f	vittao@gmail.com	Vitor Guilherme	1664992928	1664992928	0	0	84	1	https://lh3.googleusercontent.com/a-/ACNPEu-tq7cfrbiu2dC5Rv1X9wrBbEN_AbXnGYd2q_6wLB0=s96-c
+Fv8o5WlJbVVWSMdQQsn3ZYqo3Gl2		0	f	vendasmg2@coferpol.com.br	Adrian Leali Silva	1665418649	1665418649	0	1001	85	2	
+tEuLkh4mezf6qzLiHe0VDmZPMue2		0	f	dev2coferpol@gmail.com	Vinicius Pacio	1662471317	1662471317	0	0	59	3	https://lh3.googleusercontent.com/a/AItbvmkII6GVf2MiqdSiyYaKCkBo7XWWCnzQkts8RIJB=s96-c
+mjthC37rISaUeBJ4kmRhiUDqdL23		0	f	vendasms@coferpol.com.br	Jeferson Valdambrini	1672858205	1672858205	0	177	88	2	
+\.
+
+
+--
+-- Name: addresses_nid_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.addresses_nid_seq', 2, true);
+
+
+--
+-- Name: budgets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.budgets_id_seq', 5, true);
+
+
+--
+-- Name: budgets_products_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.budgets_products_id_seq', 1, true);
+
+
+--
+-- Name: cart_history_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.cart_history_id_seq', 6, true);
+
+
+--
+-- Name: carts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.carts_id_seq', 34, true);
+
+
+--
+-- Name: favorites_products_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.favorites_products_id_seq', 1, true);
+
+
+--
+-- Name: hot_products_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.hot_products_id_seq', 3, true);
+
+
+--
+-- Name: products_pid_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.products_pid_seq', 24, true);
+
+
+--
+-- Name: regions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.regions_id_seq', 1, false);
+
+
+--
+-- Name: state_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.state_id_seq', 34, true);
+
+
+--
+-- Name: users_nid_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.users_nid_seq', 88, true);
+
+
+--
+-- Name: hdb_action_log hdb_action_log_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_action_log
+    ADD CONSTRAINT hdb_action_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_cron_event_invocation_logs hdb_cron_event_invocation_logs_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_event_invocation_logs
+    ADD CONSTRAINT hdb_cron_event_invocation_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_cron_events hdb_cron_events_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_events
+    ADD CONSTRAINT hdb_cron_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_metadata hdb_metadata_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_metadata
+    ADD CONSTRAINT hdb_metadata_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_metadata hdb_metadata_resource_version_key; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_metadata
+    ADD CONSTRAINT hdb_metadata_resource_version_key UNIQUE (resource_version);
+
+
+--
+-- Name: hdb_scheduled_event_invocation_logs hdb_scheduled_event_invocation_logs_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_event_invocation_logs
+    ADD CONSTRAINT hdb_scheduled_event_invocation_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_scheduled_events hdb_scheduled_events_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_events
+    ADD CONSTRAINT hdb_scheduled_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_schema_notifications hdb_schema_notifications_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_schema_notifications
+    ADD CONSTRAINT hdb_schema_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_version hdb_version_pkey; Type: CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_version
+    ADD CONSTRAINT hdb_version_pkey PRIMARY KEY (hasura_uuid);
+
+
+--
+-- Name: budgets_products budgets_products_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets_products
+    ADD CONSTRAINT budgets_products_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: carts carts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.carts
+    ADD CONSTRAINT carts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: favorites_products favorites_products_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.favorites_products
+    ADD CONSTRAINT favorites_products_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: addresses pkey_address_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.addresses
+    ADD CONSTRAINT pkey_address_id PRIMARY KEY (id);
+
+
+--
+-- Name: budgets pkey_budget_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets
+    ADD CONSTRAINT pkey_budget_id PRIMARY KEY (id);
+
+
+--
+-- Name: cart_histories pkey_cart_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cart_histories
+    ADD CONSTRAINT pkey_cart_id PRIMARY KEY (id);
+
+
+--
+-- Name: hot_products pkey_hot_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hot_products
+    ADD CONSTRAINT pkey_hot_id PRIMARY KEY (id);
+
+
+--
+-- Name: users pkey_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT pkey_id PRIMARY KEY (id);
+
+
+--
+-- Name: products pkey_product_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.products
+    ADD CONSTRAINT pkey_product_id PRIMARY KEY (id);
+
+
+--
+-- Name: states pkey_state; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.states
+    ADD CONSTRAINT pkey_state PRIMARY KEY (id);
+
+
+--
+-- Name: regions regions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.regions
+    ADD CONSTRAINT regions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hdb_cron_event_invocation_event_id; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_cron_event_invocation_event_id ON hdb_catalog.hdb_cron_event_invocation_logs USING btree (event_id);
+
+
+--
+-- Name: hdb_cron_event_status; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_cron_event_status ON hdb_catalog.hdb_cron_events USING btree (status);
+
+
+--
+-- Name: hdb_cron_events_unique_scheduled; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE UNIQUE INDEX hdb_cron_events_unique_scheduled ON hdb_catalog.hdb_cron_events USING btree (trigger_name, scheduled_time) WHERE (status = 'scheduled'::text);
+
+
+--
+-- Name: hdb_scheduled_event_status; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE INDEX hdb_scheduled_event_status ON hdb_catalog.hdb_scheduled_events USING btree (status);
+
+
+--
+-- Name: hdb_version_one_row; Type: INDEX; Schema: hdb_catalog; Owner: postgres
+--
+
+CREATE UNIQUE INDEX hdb_version_one_row ON hdb_catalog.hdb_version USING btree (((version IS NOT NULL)));
+
+
+--
+-- Name: fki_fk_product_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fk_product_id ON public.hot_products USING btree (product_id);
+
+
+--
+-- Name: fki_fki_budget_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fki_budget_id ON public.budgets_products USING btree (budget_id);
+
+
+--
+-- Name: fki_fki_product_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fki_product_id ON public.hot_products USING btree (product_id);
+
+
+--
+-- Name: fki_fki_states_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fki_states_id ON public.regions USING btree (state_id);
+
+
+--
+-- Name: fki_fki_user_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX fki_fki_user_id ON public.addresses USING btree (user_id);
+
+
+--
+-- Name: hdb_cron_event_invocation_logs hdb_cron_event_invocation_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_cron_event_invocation_logs
+    ADD CONSTRAINT hdb_cron_event_invocation_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES hdb_catalog.hdb_cron_events(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: hdb_scheduled_event_invocation_logs hdb_scheduled_event_invocation_logs_event_id_fkey; Type: FK CONSTRAINT; Schema: hdb_catalog; Owner: postgres
+--
+
+ALTER TABLE ONLY hdb_catalog.hdb_scheduled_event_invocation_logs
+    ADD CONSTRAINT hdb_scheduled_event_invocation_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES hdb_catalog.hdb_scheduled_events(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: hot_products fk_product_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hot_products
+    ADD CONSTRAINT fk_product_id FOREIGN KEY (product_id) REFERENCES public.products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: budgets_products fki_budget_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets_products
+    ADD CONSTRAINT fki_budget_id FOREIGN KEY (budget_id) REFERENCES public.budgets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: carts fki_product_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.carts
+    ADD CONSTRAINT fki_product_id FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+
+--
+-- Name: favorites_products fki_product_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.favorites_products
+    ADD CONSTRAINT fki_product_id FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+
+--
+-- Name: budgets_products fki_product_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets_products
+    ADD CONSTRAINT fki_product_id FOREIGN KEY (product_id) REFERENCES public.products(id);
+
+
+--
+-- Name: regions fki_states_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.regions
+    ADD CONSTRAINT fki_states_id FOREIGN KEY (state_id) REFERENCES public.states(id) ON DELETE CASCADE;
+
+
+--
+-- Name: addresses fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.addresses
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: favorites_products fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.favorites_products
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: budgets fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.budgets
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: carts fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.carts
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: regions fki_user_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.regions
+    ADD CONSTRAINT fki_user_id FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
