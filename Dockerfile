@@ -20,7 +20,7 @@ RUN apt update -y
 RUN apt install postgresql-client -y
 
 # Install firebird client
-RUN apt install firebird3.0-utils
+RUN apt install firebird3.0-utils -y
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ COPY --from=build /app/duback ./
 
 # Copy backup shell script
 RUN mkdir scripts 
-COPY --from=build /app/scripts/backup.sh ./scripts/backup.sh
+COPY --from=build /app/scripts/backup-dev-env.sh ./scripts/backup-dev-env.sh
 
 # Create folder to receive backups
 RUN mkdir backups

@@ -13,6 +13,6 @@ func main() {
 	// Create token
 	drive.GetClient()
 
-	// Start backup rotine
-	rotines.BackupRotine()
+	// Start backup dev-env rotine
+	rotines.DevEnvRotine()
 }
